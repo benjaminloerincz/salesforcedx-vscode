@@ -4,15 +4,24 @@
  * Licensed under the BSD 3-Clause license.
  * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
-
+import * as path from 'path';
 import * as vscode from 'vscode';
 import { ConfigurationTarget } from 'vscode';
+import { channelService } from './channels';
 import {
+  CompositeParametersGatherer,
   forceAliasList,
   forceApexClassCreate,
   forceApexExecute,
+  forceApexLogGet,
+  forceApexTestClassRunCodeAction,
+  forceApexTestClassRunCodeActionDelegate,
+  forceApexTestMethodRunCodeAction,
+  forceApexTestMethodRunCodeActionDelegate,
   forceApexTestRun,
   forceApexTriggerCreate,
+  forceAuthDevHub,
+  forceAuthLogoutAll,
   forceAuthWebLogin,
   forceConfigList,
   forceDataSoqlQuery,
@@ -25,28 +34,57 @@ import {
   forceOrgCreate,
   forceOrgDisplay,
   forceOrgOpen,
-  forceProjectCreate,
+  forceProjectWithManifestCreate,
+  forceSfdxProjectCreate,
+  forceSourceDeploy,
   forceSourcePull,
   forceSourcePush,
+  forceSourceRetrieve,
   forceSourceStatus,
+  forceStartApexDebugLogging,
+  forceStopApexDebugLogging,
   forceTaskStop,
   forceVisualforceComponentCreate,
-  forceVisualforcePageCreate
+  forceVisualforcePageCreate,
+  SelectFileName,
+  SelectStrictDirPath,
+  SfdxCommandlet,
+  SfdxCommandletExecutor,
+  SfdxWorkspaceChecker,
+  turnOffLogging
 } from './commands';
+import { getUserId } from './commands/forceStartApexDebugLogging';
+import {
+  isvDebugBootstrap,
+  setupGlobalDefaultUserIsvAuth
+} from './commands/isvdebugging/bootstrapCmd';
 import {
   CLIENT_ID,
   SFDX_CLIENT_ENV_VAR,
   TERMINAL_INTEGRATED_ENVS
 } from './constants';
-import * as scratchOrgDecorator from './scratch-org-decorator';
-import { CANCEL_EXECUTION_COMMAND, cancelCommandExecution } from './statuses';
+import * as decorators from './decorators';
+import { nls } from './messages';
+import { isDemoMode } from './modes/demo-mode';
+import { notificationService, ProgressNotification } from './notifications';
 import { taskViewService } from './statuses';
+import { telemetryService } from './telemetry';
 
-function registerCommands(): vscode.Disposable {
+function registerCommands(
+  extensionContext: vscode.ExtensionContext
+): vscode.Disposable {
   // Customer-facing commands
   const forceAuthWebLoginCmd = vscode.commands.registerCommand(
     'sfdx.force.auth.web.login',
     forceAuthWebLogin
+  );
+  const forceAuthDevHubCmd = vscode.commands.registerCommand(
+    'sfdx.force.auth.dev.hub',
+    forceAuthDevHub
+  );
+  const forceAuthLogoutAllCmd = vscode.commands.registerCommand(
+    'sfdx.force.auth.logout.all',
+    forceAuthLogoutAll
   );
   const forceOrgCreateCmd = vscode.commands.registerCommand(
     'sfdx.force.org.create',
@@ -55,6 +93,14 @@ function registerCommands(): vscode.Disposable {
   const forceOrgOpenCmd = vscode.commands.registerCommand(
     'sfdx.force.org.open',
     forceOrgOpen
+  );
+  const forceSourceDeployCmd = vscode.commands.registerCommand(
+    'sfdx.force.source.deploy',
+    forceSourceDeploy
+  );
+  const forceSourceDeployCurrentFileCmd = vscode.commands.registerCommand(
+    'sfdx.force.source.deploy.current.file',
+    forceSourceDeploy
   );
   const forceSourcePullCmd = vscode.commands.registerCommand(
     'sfdx.force.source.pull',
@@ -74,6 +120,14 @@ function registerCommands(): vscode.Disposable {
     forceSourcePush,
     { flag: '--forceoverwrite' }
   );
+  const forceSourceRetrieveCmd = vscode.commands.registerCommand(
+    'sfdx.force.source.retrieve',
+    forceSourceRetrieve
+  );
+  const forceSourceRetrieveCurrentFileCmd = vscode.commands.registerCommand(
+    'sfdx.force.source.retrieve.current.file',
+    forceSourceRetrieve
+  );
   const forceSourceStatusCmd = vscode.commands.registerCommand(
     'sfdx.force.source.status',
     forceSourceStatus
@@ -91,6 +145,30 @@ function registerCommands(): vscode.Disposable {
   const forceApexTestRunCmd = vscode.commands.registerCommand(
     'sfdx.force.apex.test.run',
     forceApexTestRun
+  );
+  const forceApexTestClassRunDelegateCmd = vscode.commands.registerCommand(
+    'sfdx.force.apex.test.class.run.delegate',
+    forceApexTestClassRunCodeActionDelegate
+  );
+  const forceApexTestLastClassRunCmd = vscode.commands.registerCommand(
+    'sfdx.force.apex.test.last.class.run',
+    forceApexTestClassRunCodeAction
+  );
+  const forceApexTestClassRunCmd = vscode.commands.registerCommand(
+    'sfdx.force.apex.test.class.run',
+    forceApexTestClassRunCodeAction
+  );
+  const forceApexTestMethodRunDelegateCmd = vscode.commands.registerCommand(
+    'sfdx.force.apex.test.method.run.delegate',
+    forceApexTestMethodRunCodeActionDelegate
+  );
+  const forceApexTestLastMethodRunCmd = vscode.commands.registerCommand(
+    'sfdx.force.apex.test.last.method.run',
+    forceApexTestMethodRunCodeAction
+  );
+  const forceApexTestMethodRunCmd = vscode.commands.registerCommand(
+    'sfdx.force.apex.test.method.run',
+    forceApexTestMethodRunCodeAction
   );
   const forceTaskStopCmd = vscode.commands.registerCommand(
     'sfdx.force.task.stop',
@@ -173,7 +251,12 @@ function registerCommands(): vscode.Disposable {
 
   const forceProjectCreateCmd = vscode.commands.registerCommand(
     'sfdx.force.project.create',
-    forceProjectCreate
+    forceSfdxProjectCreate
+  );
+
+  const forceProjectWithManifestCreateCmd = vscode.commands.registerCommand(
+    'sfdx.force.project.with.manifest.create',
+    forceProjectWithManifestCreate
   );
 
   const forceApexTriggerCreateCmd = vscode.commands.registerCommand(
@@ -181,25 +264,51 @@ function registerCommands(): vscode.Disposable {
     forceApexTriggerCreate
   );
 
-  // Internal commands
-  const internalCancelCommandExecution = vscode.commands.registerCommand(
-    CANCEL_EXECUTION_COMMAND,
-    cancelCommandExecution
+  const forceStartApexDebugLoggingCmd = vscode.commands.registerCommand(
+    'sfdx.force.start.apex.debug.logging',
+    forceStartApexDebugLogging
+  );
+
+  const forceStopApexDebugLoggingCmd = vscode.commands.registerCommand(
+    'sfdx.force.stop.apex.debug.logging',
+    forceStopApexDebugLogging
+  );
+
+  const isvDebugBootstrapCmd = vscode.commands.registerCommand(
+    'sfdx.debug.isv.bootstrap',
+    isvDebugBootstrap
+  );
+
+  const forceApexLogGetCmd = vscode.commands.registerCommand(
+    'sfdx.force.apex.log.get',
+    forceApexLogGet
   );
 
   return vscode.Disposable.from(
     forceApexExecuteDocumentCmd,
     forceApexExecuteSelectionCmd,
     forceApexTestRunCmd,
+    forceApexTestLastClassRunCmd,
+    forceApexTestClassRunCmd,
+    forceApexTestClassRunDelegateCmd,
+    forceApexTestLastMethodRunCmd,
+    forceApexTestMethodRunCmd,
+    forceApexTestMethodRunDelegateCmd,
     forceAuthWebLoginCmd,
+    forceAuthDevHubCmd,
+    forceAuthLogoutAllCmd,
     forceDataSoqlQueryInputCmd,
     forceDataSoqlQuerySelectionCmd,
     forceOrgCreateCmd,
     forceOrgOpenCmd,
+    forceSourceDeployCmd,
+    forceSourceDeployCurrentFileCmd,
     forceSourcePullCmd,
     forceSourcePullForceCmd,
     forceSourcePushCmd,
     forceSourcePushForceCmd,
+    forceSourceRetrieveCmd,
+    forceSourceRetrieveCurrentFileCmd,
     forceSourceStatusCmd,
     forceTaskStopCmd,
     forceApexClassCreateCmd,
@@ -218,13 +327,32 @@ function registerCommands(): vscode.Disposable {
     forceOrgDisplayUsernameCmd,
     forceGenerateFauxClassesCmd,
     forceProjectCreateCmd,
+    forceProjectWithManifestCreateCmd,
     forceApexTriggerCreateCmd,
-    internalCancelCommandExecution
+    forceStartApexDebugLoggingCmd,
+    forceStopApexDebugLoggingCmd,
+    isvDebugBootstrapCmd,
+    forceApexLogGetCmd
   );
+}
+
+function registerIsvAuthWatcher(): vscode.Disposable {
+  const isvAuthWatcher = vscode.workspace.createFileSystemWatcher(
+    path.join('.sfdx', 'sfdx-config.json')
+  );
+  isvAuthWatcher.onDidChange(uri => setupGlobalDefaultUserIsvAuth());
+  isvAuthWatcher.onDidCreate(uri => setupGlobalDefaultUserIsvAuth());
+  isvAuthWatcher.onDidDelete(uri => setupGlobalDefaultUserIsvAuth());
+  return vscode.Disposable.from(isvAuthWatcher);
 }
 
 export async function activate(context: vscode.ExtensionContext) {
   console.log('SFDX CLI Extension Activated');
+
+  // Telemetry
+  telemetryService.initializeService(context);
+  telemetryService.showTelemetryMessage();
+  telemetryService.sendExtensionActivationEvent();
 
   // Context
   let sfdxProjectOpened = false;
@@ -232,6 +360,20 @@ export async function activate(context: vscode.ExtensionContext) {
     const files = await vscode.workspace.findFiles('**/sfdx-project.json');
     sfdxProjectOpened = files && files.length > 0;
   }
+
+  let replayDebuggerExtensionInstalled = false;
+  if (
+    vscode.extensions.getExtension(
+      'salesforce.salesforcedx-vscode-apex-replay-debugger'
+    )
+  ) {
+    replayDebuggerExtensionInstalled = true;
+  }
+  vscode.commands.executeCommand(
+    'setContext',
+    'sfdx:replay_debugger_extension',
+    replayDebuggerExtensionInstalled
+  );
 
   // Set environment variable to add logging for VSCode API calls
   process.env[SFDX_CLIENT_ENV_VAR] = CLIENT_ID;
@@ -249,8 +391,37 @@ export async function activate(context: vscode.ExtensionContext) {
     sfdxProjectOpened
   );
 
+  const sfdxApexDebuggerExtension = vscode.extensions.getExtension(
+    'salesforce.salesforcedx-vscode-apex-debugger'
+  );
+  vscode.commands.executeCommand(
+    'setContext',
+    'sfdx:apex_debug_extension_installed',
+    sfdxApexDebuggerExtension && sfdxApexDebuggerExtension.id
+  );
+  if (
+    sfdxProjectOpened &&
+    sfdxApexDebuggerExtension &&
+    sfdxApexDebuggerExtension.id
+  ) {
+    console.log('Setting up ISV Debugger environment variables');
+    // register watcher for ISV authentication and setup default user for CLI
+    // this is done in core because it shares access to GlobalCliEnvironment with the commands
+    // (VS Code does not seem to allow sharing npm modules between extensions)
+    try {
+      context.subscriptions.push(registerIsvAuthWatcher());
+      console.log('Configured file watcher for .sfdx/sfdx-config.json');
+      await setupGlobalDefaultUserIsvAuth();
+    } catch (e) {
+      console.error(e);
+      vscode.window.showWarningMessage(
+        nls.localize('isv_debug_config_environment_error')
+      );
+    }
+  }
+
   // Commands
-  const commands = registerCommands();
+  const commands = registerCommands(context);
   context.subscriptions.push(commands);
 
   // Task View
@@ -262,11 +433,40 @@ export async function activate(context: vscode.ExtensionContext) {
 
   // Scratch Org Decorator
   if (vscode.workspace.rootPath) {
-    scratchOrgDecorator.showOrg();
-    scratchOrgDecorator.monitorConfigChanges();
+    decorators.showOrg();
+    decorators.monitorOrgConfigChanges();
   }
+
+  // Demo mode Decorator
+  if (vscode.workspace.rootPath && isDemoMode()) {
+    decorators.showDemoMode();
+  }
+
+  const api: any = {
+    ProgressNotification,
+    CompositeParametersGatherer,
+    SelectFileName,
+    SelectStrictDirPath,
+    SfdxCommandlet,
+    SfdxCommandletExecutor,
+    SfdxWorkspaceChecker,
+    channelService,
+    notificationService,
+    taskViewService,
+    telemetryService,
+    getUserId
+  };
+
+  return api;
 }
 
-export function deactivate() {
+export function deactivate(): Promise<void> {
   console.log('SFDX CLI Extension Deactivated');
+
+  // Send metric data.
+  telemetryService.sendExtensionDeactivationEvent();
+  telemetryService.dispose();
+
+  decorators.disposeTraceFlagExpiration();
+  return turnOffLogging();
 }

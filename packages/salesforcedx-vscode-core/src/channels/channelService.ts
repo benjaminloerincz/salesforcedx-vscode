@@ -30,23 +30,26 @@ export class ChannelService {
   }
 
   public streamCommandOutput(execution: CommandExecution) {
-    this.channel.append(nls.localize('channel_starting_message'));
-    this.channel.appendLine(execution.command.toString());
-    this.channel.appendLine('');
-
-    this.channel.appendLine(execution.command.toCommand());
-
+    this.streamCommandStartStop(execution);
     execution.stderrSubject.subscribe(data =>
       this.channel.append(data.toString())
     );
     execution.stdoutSubject.subscribe(data =>
       this.channel.append(data.toString())
     );
+  }
+
+  public streamCommandStartStop(execution: CommandExecution) {
+    this.channel.append(nls.localize('channel_starting_message'));
+    this.channel.appendLine(execution.command.toString());
+    this.channel.appendLine('');
+
+    this.channel.appendLine(execution.command.toCommand());
 
     execution.processExitSubject.subscribe(data => {
       this.channel.append(execution.command.toCommand());
       this.channel.append(' ');
-      if (data != undefined) {
+      if (data !== undefined) {
         this.channel.appendLine(
           nls.localize('channel_end_with_exit_code', data.toString())
         );
@@ -59,7 +62,7 @@ export class ChannelService {
     execution.processErrorSubject.subscribe(data => {
       this.channel.append(execution.command.toCommand());
       this.channel.append(' ');
-      if (data != undefined) {
+      if (data !== undefined) {
         this.channel.appendLine(
           nls.localize('channel_end_with_error', data.message)
         );
@@ -78,5 +81,9 @@ export class ChannelService {
 
   public showChannelOutput() {
     this.channel.show();
+  }
+
+  public appendLine(text: string) {
+    this.channel.appendLine(text);
   }
 }

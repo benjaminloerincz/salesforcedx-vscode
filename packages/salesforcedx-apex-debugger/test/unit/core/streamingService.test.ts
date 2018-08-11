@@ -5,9 +5,10 @@
  * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { OrgInfo } from '@salesforce/salesforcedx-utils-vscode/out/src/cli';
+import { RequestService } from '@salesforce/salesforcedx-utils-vscode/out/src/requestService';
 import { expect } from 'chai';
 import * as sinon from 'sinon';
-import { OrgInfo } from '../../../src/commands/forceOrgDisplay';
 import {
   ApexDebuggerEventType,
   StreamingClient,
@@ -18,10 +19,14 @@ import childProcess = require('child_process');
 
 describe('Debugger streaming service', () => {
   const mockSpawn = require('mock-spawn');
+  const requestService = new RequestService();
+  requestService.instanceUrl = 'https://www.salesforce.com';
+  requestService.accessToken = '123';
 
   describe('Subscribe', () => {
     let service: StreamingService;
-    let origSpawn: any, mySpawn: any;
+    let origSpawn: any;
+    let mySpawn: any;
     let clientIsConnectedSpy: sinon.SinonStub;
     let clientSubscribeSpy: sinon.SinonStub;
     const orgInfo: OrgInfo = {
@@ -68,8 +73,7 @@ describe('Debugger streaming service', () => {
 
       const isStreamingConnected = await service.subscribe(
         'foo',
-        'https://www.salesforce.com',
-        '123',
+        requestService,
         new StreamingClientInfoBuilder().build(),
         new StreamingClientInfoBuilder().build()
       );
@@ -83,8 +87,7 @@ describe('Debugger streaming service', () => {
 
       const isStreamingConnected = await service.subscribe(
         'foo',
-        'https://www.salesforce.com',
-        '123',
+        requestService,
         new StreamingClientInfoBuilder().build(),
         new StreamingClientInfoBuilder().build()
       );
@@ -126,8 +129,7 @@ describe('Debugger streaming service', () => {
     it('Should call streaming client disconnect', async () => {
       await service.subscribe(
         'foo',
-        'https://www.salesforce.com',
-        '123',
+        requestService,
         new StreamingClientInfoBuilder().build(),
         new StreamingClientInfoBuilder().build()
       );
@@ -167,8 +169,7 @@ describe('Debugger streaming service', () => {
         .returns(false);
       await service.subscribe(
         'foo',
-        'https://www.salesforce.com',
-        '123',
+        requestService,
         new StreamingClientInfoBuilder().build(),
         new StreamingClientInfoBuilder().build()
       );
@@ -182,8 +183,7 @@ describe('Debugger streaming service', () => {
         .returns(true);
       await service.subscribe(
         'foo',
-        'https://www.salesforce.com',
-        '123',
+        requestService,
         new StreamingClientInfoBuilder().build(),
         new StreamingClientInfoBuilder().build()
       );
@@ -213,8 +213,7 @@ describe('Debugger streaming service', () => {
         .returns(true);
       await service.subscribe(
         'foo',
-        'https://www.salesforce.com',
-        '123',
+        requestService,
         systemEventClient,
         userEventClient
       );
@@ -364,8 +363,7 @@ describe('Debugger streaming service', () => {
       );
       await service.subscribe(
         'foo',
-        'https://www.salesforce.com',
-        '123',
+        requestService,
         systemEventClient,
         userEventClient
       );

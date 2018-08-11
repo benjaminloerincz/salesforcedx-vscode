@@ -5,11 +5,9 @@
  * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-export { ForceOrgDisplay, OrgInfo } from './forceOrgDisplay';
 export { FrameCommand } from './frameCommand';
 export * from './protocol';
 export { ReferencesCommand } from './referencesCommand';
-export { RequestService } from './requestService';
 export { RunCommand } from './runCommand';
 export {
   StepIntoCommand,

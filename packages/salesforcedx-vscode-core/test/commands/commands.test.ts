@@ -5,21 +5,24 @@
  * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import {
+  CancelResponse,
+  ContinueResponse,
+  DirFileNameSelection,
+  ParametersGatherer
+} from '@salesforce/salesforcedx-utils-vscode/out/src/types';
 import { expect } from 'chai';
 import * as path from 'path';
 import * as sinon from 'sinon';
 import * as vscode from 'vscode';
 import {
-  CancelResponse,
   CommandletExecutor,
   CompositeParametersGatherer,
-  ContinueResponse,
-  DirFileNameSelection,
+  DemoModePromptGatherer,
   EmptyParametersGatherer,
   EmptyPostChecker,
   FilePathExistsChecker,
   LightningFilePathExistsChecker,
-  ParametersGatherer,
   SelectPrioritizedDirPath,
   SelectStrictDirPath,
   SfdxCommandlet
@@ -30,7 +33,7 @@ import { notificationService } from '../../src/notifications';
 // tslint:disable:no-unused-expression
 describe('Command Utilities', () => {
   const WORKSPACE_NAME = 'sfdx-simple';
-  const SFDX_SIMPLE_NUM_OF_DIRS = 14;
+  const SFDX_SIMPLE_NUM_OF_DIRS = 15;
   describe('EmptyParametersGatherer', () => {
     it('Should always return continue with empty object as data', async () => {
       const gatherer = new EmptyParametersGatherer();
@@ -351,9 +354,9 @@ describe('Command Utilities', () => {
         warningSpy = sinon
           .stub(notificationService, 'showWarningMessage')
           .onFirstCall()
-          .returns(nls.localize('warning_prompt_yes'))
+          .returns(nls.localize('warning_prompt_overwrite_confirm'))
           .onSecondCall()
-          .returns(nls.localize('warning_prompt_no'));
+          .returns(nls.localize('warning_prompt_overwrite_cancel'));
       });
 
       after(() => {
@@ -456,9 +459,9 @@ describe('Command Utilities', () => {
         warningSpy = sinon
           .stub(notificationService, 'showWarningMessage')
           .onFirstCall()
-          .returns(nls.localize('warning_prompt_yes'))
+          .returns(nls.localize('warning_prompt_overwrite_confirm'))
           .onSecondCall()
-          .returns(nls.localize('warning_prompt_no'));
+          .returns(nls.localize('warning_prompt_overwrite_cancel'));
       });
 
       after(() => {
@@ -500,6 +503,38 @@ describe('Command Utilities', () => {
         sinon.assert.called(warningSpy);
         expect(response.type).to.equal('CANCEL');
       });
+    });
+  });
+
+  // Due to the way the prompt is phrased
+  // CONTINUE means that we will execute the forceLogoutAll command
+  // CANCEL means that we will not execute the forceLogoutAll command
+  describe('DemoModePrompGatherer', () => {
+    let showInformationMessageStub: sinon.SinonStub;
+
+    before(() => {
+      showInformationMessageStub = sinon.stub(
+        vscode.window,
+        'showInformationMessage'
+      );
+    });
+
+    after(() => {
+      showInformationMessageStub.restore();
+    });
+
+    it('Should return CONTINUE if message is Cancel', async () => {
+      showInformationMessageStub.onFirstCall().returns('Cancel');
+      const gatherer = new DemoModePromptGatherer();
+      const result = await gatherer.gather();
+      expect(result.type).to.equal('CONTINUE');
+      expect((result as ContinueResponse<{}>).data!).to.eql({});
+    });
+    it('Should return CANCEL if message is Authorize Org', async () => {
+      showInformationMessageStub.onFirstCall().returns('Cancel');
+      const gatherer = new DemoModePromptGatherer();
+      const result = await gatherer.gather();
+      expect(result.type).to.equal('CANCEL');
     });
   });
 });

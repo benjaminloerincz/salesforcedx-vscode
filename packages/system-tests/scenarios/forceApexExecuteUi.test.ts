@@ -56,10 +56,11 @@ describe(TITLE, () => {
     await app.client.keys(['NULL', 'Enter', 'NULL'], false);
     await app.wait();
 
-    const consoleHtml = await common.getConsoleHtml();
+    const consoleHtml = await common.getConsoleOutput();
+    // tslint:disable-next-line:prefer-for-of
     for (let i = 0; i < consoleHtml.length; i++) {
-      if (consoleHtml[i].indexOf('xit&nbsp;code') > 0) {
-        expect(consoleHtml[i]).to.contain('exit&nbsp;code&nbsp;0');
+      if (consoleHtml[i].indexOf('exit code') > 0) {
+        expect(consoleHtml[i]).to.contain('exit code 0');
       }
     }
   });
@@ -80,10 +81,11 @@ describe(TITLE, () => {
     await app.client.keys(['NULL', 'Enter', 'NULL'], false);
     await app.wait();
 
-    const consoleHtml = await common.getConsoleHtml();
+    const consoleHtml = await common.getConsoleOutput();
+    // tslint:disable-next-line:prefer-for-of
     for (let i = 0; i < consoleHtml.length; i++) {
-      if (consoleHtml[i].indexOf('xit&nbsp;code') > 0) {
-        expect(consoleHtml[i]).to.contain('exit&nbsp;code&nbsp;0');
+      if (consoleHtml[i].indexOf('exit code') > 0) {
+        expect(consoleHtml[i]).to.contain('exit code 0');
       }
     }
   });

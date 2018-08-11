@@ -5,6 +5,15 @@
  * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import {
+  SFDX_CONFIG_ISV_DEBUGGER_SID,
+  SFDX_CONFIG_ISV_DEBUGGER_URL
+} from '@salesforce/salesforcedx-utils-vscode/out/src';
+import {
+  ForceConfigGet,
+  ForceOrgDisplay
+} from '@salesforce/salesforcedx-utils-vscode/out/src/cli';
+import { RequestService } from '@salesforce/salesforcedx-utils-vscode/out/src/requestService';
 import * as AsyncLock from 'async-lock';
 import { basename } from 'path';
 import {
@@ -33,13 +42,10 @@ import {
 } from '../breakpoints/lineBreakpoint';
 import {
   DebuggerResponse,
-  ForceOrgDisplay,
   FrameCommand,
   LocalValue,
-  OrgInfo,
   Reference,
   ReferencesCommand,
-  RequestService,
   RunCommand,
   StateCommand,
   StepIntoCommand,
@@ -63,7 +69,9 @@ import {
   HOTSWAP_REQUEST,
   LINE_BREAKPOINT_INFO_REQUEST,
   LIST_EXCEPTION_BREAKPOINTS_REQUEST,
+  SALESFORCE_EXCEPTION_PREFIX,
   SHOW_MESSAGE_EVENT,
+  TRIGGER_EXCEPTION_PREFIX,
   WORKSPACE_SETTINGS_REQUEST
 } from '../constants';
 import {
@@ -88,13 +96,17 @@ const TRACE_CATEGORY_VARIABLES = 'variables';
 const TRACE_CATEGORY_LAUNCH = 'launch';
 const TRACE_CATEGORY_PROTOCOL = 'protocol';
 const TRACE_CATEGORY_BREAKPOINTS = 'breakpoints';
+const TRACE_CATEGORY_STREAMINGAPI = 'streaming';
+
+const CONNECT_TYPE_ISV_DEBUGGER = 'ISV_DEBUGGER';
 
 export type TraceCategory =
   | 'all'
   | 'variables'
   | 'launch'
   | 'protocol'
-  | 'breakpoints';
+  | 'breakpoints'
+  | 'streaming';
 
 export interface LaunchRequestArguments
   extends DebugProtocol.LaunchRequestArguments {
@@ -104,6 +116,7 @@ export interface LaunchRequestArguments
   requestTypeFilter?: string[];
   entryPointFilter?: string;
   sfdxProject: string;
+  connectType?: string;
 }
 
 export interface SetExceptionBreakpointsArguments {
@@ -135,6 +148,7 @@ export class ApexVariable extends Variable {
   public readonly declaredTypeRef: string;
   public readonly type: string;
   public readonly indexedVariables?: number;
+  public readonly evaluateName: string;
   private readonly slot: number;
   private readonly kind: ApexVariableKind;
 
@@ -153,6 +167,7 @@ export class ApexVariable extends Variable {
     this.declaredTypeRef = value.declaredTypeRef;
     this.kind = kind;
     this.type = value.nameForMessages;
+    this.evaluateName = this.value;
     if ((value as LocalValue).slot !== undefined) {
       this.slot = (value as LocalValue).slot;
     } else {
@@ -193,8 +208,8 @@ export class ApexVariable extends Variable {
     n1 = ApexVariable.extractNumber(n1);
     n2 = ApexVariable.extractNumber(n2);
 
-    const i1 = parseInt(n1);
-    const i2 = parseInt(n2);
+    const i1 = parseInt(n1, 10);
+    const i2 = parseInt(n2, 10);
     const isNum1 = !isNaN(i1);
     const isNum2 = !isNaN(i2);
 
@@ -515,12 +530,11 @@ export class MapTupleContainer implements VariableContainer {
 }
 
 export class ApexDebug extends LoggingDebugSession {
-  protected mySessionService = SessionService.getInstance();
-  protected myBreakpointService = BreakpointService.getInstance();
+  protected myRequestService = new RequestService();
+  protected mySessionService = new SessionService(this.myRequestService);
+  protected myBreakpointService = new BreakpointService(this.myRequestService);
   protected myStreamingService = StreamingService.getInstance();
-  protected myRequestService = RequestService.getInstance();
   protected sfdxProject: string;
-  protected orgInfo: OrgInfo;
   protected requestThreads: Map<number, string>;
   protected threadId: number;
 
@@ -657,14 +671,33 @@ export class ApexDebug extends LoggingDebugSession {
     }
 
     try {
-      this.orgInfo = await new ForceOrgDisplay().getOrgInfo(args.sfdxProject);
-      this.myRequestService.instanceUrl = this.orgInfo.instanceUrl;
-      this.myRequestService.accessToken = this.orgInfo.accessToken;
+      if (args.connectType === CONNECT_TYPE_ISV_DEBUGGER) {
+        const forceConfig = await new ForceConfigGet().getConfig(
+          args.sfdxProject,
+          SFDX_CONFIG_ISV_DEBUGGER_SID,
+          SFDX_CONFIG_ISV_DEBUGGER_URL
+        );
+        const isvDebuggerSid = forceConfig.get(SFDX_CONFIG_ISV_DEBUGGER_SID);
+        const isvDebuggerUrl = forceConfig.get(SFDX_CONFIG_ISV_DEBUGGER_URL);
+        if (
+          typeof isvDebuggerSid === 'undefined' ||
+          typeof isvDebuggerUrl === 'undefined'
+        ) {
+          response.message = nls.localize('invalid_isv_project_config');
+          return this.sendResponse(response);
+        }
+        this.myRequestService.instanceUrl = isvDebuggerUrl;
+        this.myRequestService.accessToken = isvDebuggerSid;
+      } else {
+        const orgInfo = await new ForceOrgDisplay().getOrgInfo(
+          args.sfdxProject
+        );
+        this.myRequestService.instanceUrl = orgInfo.instanceUrl;
+        this.myRequestService.accessToken = orgInfo.accessToken;
+      }
 
       const isStreamingConnected = await this.connectStreaming(
-        args.sfdxProject,
-        this.orgInfo.instanceUrl,
-        this.orgInfo.accessToken
+        args.sfdxProject
       );
       if (!isStreamingConnected) {
         return this.sendResponse(response);
@@ -1150,7 +1183,7 @@ export class ApexDebug extends LoggingDebugSession {
       );
     });
 
-    response.body = { scopes: scopes };
+    response.body = { scopes };
     this.sendResponse(response);
   }
 
@@ -1190,7 +1223,7 @@ export class ApexDebug extends LoggingDebugSession {
         args.count
       );
       variables.sort(ApexVariable.compareVariables);
-      response.body = { variables: variables };
+      response.body = { variables };
       this.resetIdleTimer();
       this.sendResponse(response);
     } catch (error) {
@@ -1399,6 +1432,18 @@ export class ApexDebug extends LoggingDebugSession {
     await this.fetchReferences(requestId, ...apexIdsToFetch);
   }
 
+  protected evaluateRequest(
+    response: DebugProtocol.EvaluateResponse,
+    args: DebugProtocol.EvaluateArguments
+  ): void {
+    response.body = {
+      result: args.expression,
+      variablesReference: 0
+    };
+    response.success = true;
+    this.sendResponse(response);
+  }
+
   protected printToDebugConsole(
     msg?: string,
     sourceFile?: Source,
@@ -1479,11 +1524,7 @@ export class ApexDebug extends LoggingDebugSession {
     }
   }
 
-  public async connectStreaming(
-    projectPath: string,
-    instanceUrl: string,
-    accessToken: string
-  ): Promise<boolean> {
+  public async connectStreaming(projectPath: string): Promise<boolean> {
     const clientInfos: StreamingClientInfo[] = [];
     for (const channel of [
       StreamingService.SYSTEM_EVENT_CHANNEL,
@@ -1518,8 +1559,7 @@ export class ApexDebug extends LoggingDebugSession {
 
     return this.myStreamingService.subscribe(
       projectPath,
-      instanceUrl,
-      accessToken,
+      this.myRequestService,
       systemChannelInfo,
       userChannelInfo
     );
@@ -1529,11 +1569,16 @@ export class ApexDebug extends LoggingDebugSession {
     const type: ApexDebuggerEventType = (ApexDebuggerEventType as any)[
       message.sobject.Type
     ];
+    this.log(
+      TRACE_CATEGORY_STREAMINGAPI,
+      `handleEvent: received ${JSON.stringify(message)}`
+    );
     if (
       !this.mySessionService.isConnected() ||
       this.mySessionService.getSessionId() !== message.sobject.SessionId ||
       this.myStreamingService.hasProcessedEvent(type, message.event.replayId)
     ) {
+      this.log(TRACE_CATEGORY_STREAMINGAPI, `handleEvent: event ignored`);
       return;
     }
     switch (type) {
@@ -1610,7 +1655,7 @@ export class ApexDebug extends LoggingDebugSession {
       const matches = message.sobject.Description.match(regExp);
       if (matches && matches.length === 3) {
         const possibleClassName = matches[1];
-        const possibleClassLine = parseInt(matches[2]);
+        const possibleClassLine = parseInt(matches[2], 10);
         const possibleSourcePath = this.myBreakpointService.getSourcePathFromPartialTyperef(
           possibleClassName
         );
@@ -1720,8 +1765,29 @@ export class ApexDebug extends LoggingDebugSession {
 
       // log to console and notify client
       this.logEvent(message);
+      let reason = '';
+
+      // if breakpointid is found in exception breakpoint cache
+      // set the reason for stopped event to that reason
+      if (message.sobject.BreakpointId) {
+        const cache: Map<
+          string,
+          string
+        > = this.myBreakpointService.getExceptionBreakpointCache();
+        cache.forEach((value, key) => {
+          if (value === message.sobject.BreakpointId) {
+            // typerefs for exceptions will change based on whether they are custom,
+            // defined as an inner class, defined in a trigger, or in a namespaced org
+            reason = key
+              .replace(SALESFORCE_EXCEPTION_PREFIX, '')
+              .replace(TRIGGER_EXCEPTION_PREFIX, '')
+              .replace('$', '.')
+              .replace('/', '.');
+          }
+        });
+      }
       const stoppedEvent: DebugProtocol.StoppedEvent = new StoppedEvent(
-        '',
+        reason,
         threadId
       );
       this.sendEvent(stoppedEvent);

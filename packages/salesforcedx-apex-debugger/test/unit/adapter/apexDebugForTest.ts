@@ -4,7 +4,10 @@
  * Licensed under the BSD 3-Clause license.
  * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
+// This is only done in tests because we are mocking things
+// tslint:disable:no-floating-promises
 
+import { RequestService } from '@salesforce/salesforcedx-utils-vscode/out/src/requestService';
 import { Source } from 'vscode-debugadapter/lib/debugSession';
 import { DebugProtocol } from 'vscode-debugprotocol';
 import {
@@ -13,7 +16,7 @@ import {
   LaunchRequestArguments,
   VariableContainer
 } from '../../../src/adapter/apexDebug';
-import { OrgInfo, Reference, RequestService } from '../../../src/commands';
+import { Reference } from '../../../src/commands';
 import {
   BreakpointService,
   SessionService,
@@ -25,16 +28,30 @@ export class ApexDebugForTest extends ApexDebug {
   private receivedEvents: DebugProtocol.Event[] = [];
 
   constructor(
-    sessionService: SessionService,
-    streamingService: StreamingService,
-    breakpointService: BreakpointService,
-    requestService: RequestService
+    requestService: RequestService,
+    sessionService?: SessionService,
+    streamingService?: StreamingService,
+    breakpointService?: BreakpointService
   ) {
     super();
-    this.mySessionService = sessionService;
-    this.myStreamingService = streamingService;
-    this.myBreakpointService = breakpointService;
     this.myRequestService = requestService;
+    this.mySessionService = sessionService
+      ? sessionService
+      : new SessionService(requestService);
+    this.myStreamingService = streamingService
+      ? streamingService
+      : new StreamingService();
+    this.myBreakpointService = breakpointService
+      ? breakpointService
+      : new BreakpointService(requestService);
+  }
+
+  public getBreakpointService(): BreakpointService {
+    return this.myBreakpointService;
+  }
+
+  public getRequestService(): RequestService {
+    return this.myRequestService;
   }
 
   public getResponse(index: number): DebugProtocol.Response {
@@ -141,10 +158,6 @@ export class ApexDebugForTest extends ApexDebug {
 
   public setSfdxProject(projectPath: string): void {
     this.sfdxProject = projectPath;
-  }
-
-  public setOrgInfo(orgInfo: OrgInfo): void {
-    this.orgInfo = orgInfo;
   }
 
   public addRequestThread(requestId: string): void {

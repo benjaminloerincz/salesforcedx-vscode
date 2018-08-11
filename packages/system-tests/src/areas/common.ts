@@ -70,12 +70,12 @@ export class CommonActions {
     );
   }
 
-  public async getConsoleHtml(): Promise<any> {
+  public async getConsoleOutput(): Promise<any> {
     const htmlTag = `div[class="view-lines"]`;
     const el = await this.spectron.client.element(htmlTag);
     if (el.status === 0) {
-      const html = await this.spectron.client.getHTML(htmlTag);
-      return html;
+      const textFromElement = await this.spectron.client.getText(htmlTag);
+      return textFromElement;
     }
     return undefined;
   }
@@ -95,7 +95,7 @@ export class CommonActions {
   public type(text: string): Promise<any> {
     const spectron = this.spectron;
 
-    return new Promise(function(res) {
+    return new Promise(res => {
       const textSplit = text.split(' ');
 
       async function type(i: number) {

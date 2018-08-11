@@ -10,17 +10,20 @@ import {
   Command,
   SfdxCommandBuilder
 } from '@salesforce/salesforcedx-utils-vscode/out/src/cli';
+import {
+  ContinueResponse,
+  DirFileNameSelection
+} from '@salesforce/salesforcedx-utils-vscode/out/src/types';
 import * as path from 'path';
 import { Observable } from 'rxjs/Observable';
 import * as vscode from 'vscode';
 import { channelService } from '../channels';
 import { nls } from '../messages';
-import { notificationService } from '../notifications';
-import { CancellableStatusBar, taskViewService } from '../statuses';
+import { notificationService, ProgressNotification } from '../notifications';
+import { taskViewService } from '../statuses';
+import { telemetryService } from '../telemetry';
 import {
   CompositeParametersGatherer,
-  ContinueResponse,
-  DirFileNameSelection,
   FilePathExistsChecker,
   SelectFileName,
   SelectPrioritizedDirPath,
@@ -28,7 +31,6 @@ import {
   SfdxCommandletExecutor,
   SfdxWorkspaceChecker
 } from './commands';
-
 const APEX_FILE_EXTENSION = '.cls';
 
 class ForceApexClassCreateExecutor extends SfdxCommandletExecutor<
@@ -54,7 +56,7 @@ class ForceApexClassCreateExecutor extends SfdxCommandletExecutor<
 
     execution.processExitSubject.subscribe(async data => {
       if (
-        data != undefined &&
+        data !== undefined &&
         data.toString() === '0' &&
         vscode.workspace.rootPath
       ) {
@@ -74,8 +76,10 @@ class ForceApexClassCreateExecutor extends SfdxCommandletExecutor<
       execution.command.toString(),
       (execution.stderrSubject as any) as Observable<Error | undefined>
     );
+
+    telemetryService.sendCommandEvent('force_apex_class_create');
     channelService.streamCommandOutput(execution);
-    CancellableStatusBar.show(execution, cancellationTokenSource);
+    ProgressNotification.show(execution, cancellationTokenSource);
     taskViewService.addCommandExecution(execution, cancellationTokenSource);
   }
 }
@@ -98,5 +102,5 @@ export async function forceApexClassCreate(explorerDir?: any) {
     new ForceApexClassCreateExecutor(),
     filePathExistsChecker
   );
-  commandlet.run();
+  await commandlet.run();
 }

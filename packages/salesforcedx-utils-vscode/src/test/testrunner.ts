@@ -2,7 +2,6 @@
  * rewritten test runner for integrating code coverage;
  * https://github.com/codecov/example-typescript-vscode-extension
  */
-
 'use strict';
 
 import * as fs from 'fs';
@@ -35,6 +34,25 @@ function configure(mochaOpts: any): void {
     // default to 'mocha-multi-reporters' (to get xunit.xml result)
     mochaOpts.reporter = 'mocha-multi-reporters';
   }
+  if (!mochaOpts.reporterOptions) {
+    let xmlPath = '';
+    // There were some oddities on Windows where the mocha execution would be inside the downloaded version of vscode and store the test result file there
+    // This will fix the pathing for windows. This behavior is not seen in the system-tests, appears to be only when we use vscode's test bin to run tests
+    if (process.platform === 'win32') {
+      xmlPath = paths.normalize(paths.join(process.cwd(), '..', '..'));
+    }
+    mochaOpts.reporterOptions = {
+      reporterEnabled: 'mocha-junit-reporter, xunit, spec',
+      mochaJunitReporterReporterOptions: {
+        mochaFile: xmlPath
+          ? paths.join(xmlPath, 'junit-custom.xml')
+          : 'junit-custom.xml'
+      },
+      xunitReporterOptions: {
+        output: xmlPath ? paths.join(xmlPath, 'xunit.xml') : 'xunit.xml'
+      }
+    };
+  }
   mocha = new Mocha(mochaOpts);
 }
 exports.configure = configure;
@@ -47,7 +65,7 @@ function _mkDirIfExists(dir: string): void {
 
 function _readCoverOptions(testsRoot: string): ITestRunnerOptions | undefined {
   const coverConfigPath = paths.join(testsRoot, '..', '..', 'coverconfig.json');
-  let coverConfig: ITestRunnerOptions | undefined = undefined;
+  let coverConfig: ITestRunnerOptions | undefined;
   if (fs.existsSync(coverConfigPath)) {
     const configContent = fs.readFileSync(coverConfigPath, 'utf-8');
     coverConfig = JSON.parse(configContent);
@@ -72,6 +90,7 @@ function run(testsRoot: any, clb: any): any {
   // Glob test files
   glob('**/**.test.js', { cwd: testsRoot }, (error, files): any => {
     if (error) {
+      console.error('An error occured: ' + error);
       return clb(error);
     }
     try {
@@ -83,14 +102,24 @@ function run(testsRoot: any, clb: any): any {
       let failureCount = 0;
 
       mocha
-        .run()
+        .run((failures: any) => {
+          process.on('exit', () => {
+            console.log(
+              `Existing test process, code should be ${failureCount}`
+            );
+            process.exit(failures); // exit with non-zero status if there were failures
+          });
+        })
         .on('fail', (test: any, err: any): void => {
+          console.log(`Failure in test '${test}': ${err}`);
           failureCount++;
         })
         .on('end', (): void => {
+          console.log(`Tests ended with ${failureCount} failure(s)`);
           clb(undefined, failureCount);
         });
     } catch (error) {
+      console.error('An error occured: ' + error);
       return clb(error);
     }
   });

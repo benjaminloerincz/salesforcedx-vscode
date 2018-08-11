@@ -12,10 +12,10 @@ import {
   LocalCommandExecution,
   SfdxCommandBuilder
 } from '@salesforce/salesforcedx-utils-vscode/out/src/cli';
+import { ContinueResponse } from '@salesforce/salesforcedx-utils-vscode/out/src/types';
 import * as vscode from 'vscode';
 import { nls } from '../messages';
 import {
-  ContinueResponse,
   EmptyParametersGatherer,
   SfdxCommandlet,
   SfdxCommandletExecutor,
@@ -72,5 +72,5 @@ export async function forceGenerateFauxClassesCreate(explorerDir?: any) {
     parameterGatherer,
     new ForceGenerateFauxClassesExecutor()
   );
-  commandlet.run();
+  await commandlet.run();
 }

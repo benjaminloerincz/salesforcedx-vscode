@@ -1,39 +1,53 @@
 {
   "devDependencies": {
+    "@salesforce/dev-config": "1.1.0",
+    "ajv": "6.1.1",
     "eslint": "4.13.1",
     "eslint-config-prettier": "2.9.0",
+    "husky": "0.14.3",
     "istanbul": "1.1.0-alpha.1",
     "lerna": "2.4.0",
     "prettier": "1.6.0",
     "remap-istanbul": "^0.9.5",
     "shx": "0.2.2",
+    "snyk": "^1.82.1",
     "tslint": "5.5.0",
-    "typescript": "2.4.0",
-    "vsce": "1.29.0"
+    "typescript": "2.6.2",
+    "vsce": "^1.36.3"
   },
   "scripts": {
-    "postinstall": "lerna bootstrap",
-    "bootstrap": "lerna bootstrap",
+    "postinstall":
+      "lerna bootstrap -- --no-package-lock && node scripts/reformat-with-prettier",
+    "bootstrap":
+      "lerna bootstrap -- --no-package-lock && node scripts/reformat-with-prettier",
     "clean": "lerna run clean",
     "compile": "lerna run --stream compile",
     "lint": "lerna run lint",
     "publish": "node scripts/publish.js",
-    "test": "lerna run test --concurrency 1 --stream",
-    "test:unit": "lerna run test:unit --concurrency 1 --stream",
+    "prepush": "npm run lint",
+    "test": "lerna exec --concurrency 1 --stream --bail=false -- npm run test",
+    "test:unit":
+      "lerna exec --concurrency 1 --stream --bail=false -- npm run test:unit",
     "test:integration": "lerna run test:integration --concurrency 1 --stream",
     "test:without-system-tests":
-      "lerna run test --ignore system-tests --concurrency 1 --stream",
+      "lerna exec --ignore system-tests --concurrency 1 --stream --bail=false -- npm run test",
     "test:system-tests":
       "lerna run test --scope system-tests --concurrency 1 --stream",
     "coverage:system-tests":
       "lerna run coverage --scope system-tests --concurrency 1 --stream",
     "vscode:package":
-      "lerna exec -- shx rm -rf node_modules/@types && lerna exec --scope @salesforce/salesforcedx-* -- npm prune --production && lerna run vscode:package --concurrency 1",
+      "lerna exec --scope @salesforce/salesforcedx-* -- npm prune --production && lerna run vscode:package --concurrency 1 && node scripts/reformat-with-prettier",
     "vscode:sha256": "lerna run vscode:sha256 --concurrency 1",
     "vscode:publish": "lerna run vscode:publish --concurrency 1",
     "watch": "lerna run --parallel watch",
     "eslint-check":
-      "eslint --print-config .eslintrc.json | eslint-config-prettier-check"
+      "eslint --print-config .eslintrc.json | eslint-config-prettier-check",
+    "reformat": "node scripts/reformat-with-prettier.js",
+    "synk:test":
+      "lerna exec --bail=false --ignore salesforcedx-vscode -- snyk test --severity-threshold=medium --show-vulnerable-paths=false",
+    "synk:monitor":
+      "lerna exec --bail=false --ignore salesforcedx-vscode -- snyk monitor --severity-threshold=medium --show-vulnerable-paths=false --org=vazexqi",
+    "aggregateJUnit": "node scripts/aggregate-junit-xml.js"
   },
   "repository": {
     "type": "git",

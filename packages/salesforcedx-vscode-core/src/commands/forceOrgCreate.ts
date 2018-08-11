@@ -9,16 +9,18 @@ import {
   Command,
   SfdxCommandBuilder
 } from '@salesforce/salesforcedx-utils-vscode/out/src/cli';
+import {
+  CancelResponse,
+  ContinueResponse,
+  ParametersGatherer
+} from '@salesforce/salesforcedx-utils-vscode/out/src/types';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { nls } from '../messages';
 import {
-  CancelResponse,
   CompositeParametersGatherer,
-  ContinueResponse,
   FileSelection,
   FileSelector,
-  ParametersGatherer,
   SfdxCommandlet,
   SfdxCommandletExecutor,
   SfdxWorkspaceChecker
@@ -72,11 +74,11 @@ const parameterGatherer = new CompositeParametersGatherer<
   AliasAndFileSelection
 >(new FileSelector('config/**/*-scratch-def.json'), new AliasGatherer());
 
-export function forceOrgCreate() {
+export async function forceOrgCreate() {
   const commandlet = new SfdxCommandlet(
     workspaceChecker,
     parameterGatherer,
     new ForceOrgCreateExecutor()
   );
-  commandlet.run();
+  await commandlet.run();
 }

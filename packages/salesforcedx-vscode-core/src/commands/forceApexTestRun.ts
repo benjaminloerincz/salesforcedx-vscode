@@ -9,14 +9,17 @@ import {
   Command,
   SfdxCommandBuilder
 } from '@salesforce/salesforcedx-utils-vscode/out/src/cli';
+import {
+  CancelResponse,
+  ContinueResponse,
+  ParametersGatherer
+} from '@salesforce/salesforcedx-utils-vscode/out/src/types';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { nls } from '../messages';
+import { sfdxCoreSettings } from '../settings';
 import {
-  CancelResponse,
-  ContinueResponse,
-  ParametersGatherer,
   SfdxCommandlet,
   SfdxCommandletExecutor,
   SfdxWorkspaceChecker
@@ -36,7 +39,7 @@ export class TestsSelector
   implements ParametersGatherer<ApexTestQuickPickItem> {
   public async gather(): Promise<
     CancelResponse | ContinueResponse<ApexTestQuickPickItem>
-  > {
+    > {
     const testSuites = await vscode.workspace.findFiles(
       '**/*.testSuite-meta.xml'
     );
@@ -65,7 +68,7 @@ export class TestsSelector
     fileItems.push({
       label: nls.localize('force_apex_test_run_all_test_label'),
       description: nls.localize(
-        'force_apex_test_run_all_tests_desription_text'
+        'force_apex_test_run_all_tests_description_text'
       ),
       type: TestType.All
     });
@@ -79,43 +82,71 @@ export class TestsSelector
   }
 }
 
+export class ForceApexTestRunCommandFactory {
+  private data: ApexTestQuickPickItem;
+  private getCodeCoverage: boolean;
+  private builder: SfdxCommandBuilder = new SfdxCommandBuilder();
+  private testRunExecutorCommand: Command;
+
+  constructor(data: ApexTestQuickPickItem, getCodeCoverage: boolean) {
+    this.data = data;
+    this.getCodeCoverage = getCodeCoverage;
+  }
+
+  public constructExecutorCommand(): Command {
+    this.builder = this.builder
+      .withDescription(nls.localize('force_apex_test_run_text'))
+      .withArg('force:apex:test:run');
+
+    switch (this.data.type) {
+      case TestType.Suite:
+        this.builder = this.builder
+          .withFlag('--suitenames', `${this.data.label}`);
+        break;
+      case TestType.Class:
+        this.builder = this.builder
+          .withFlag('--classnames', `${this.data.label}`)
+          .withArg('--synchronous');
+        break;
+      default:
+        break;
+    }
+
+    if (this.getCodeCoverage) {
+      this.builder = this.builder
+        .withArg('--codecoverage');
+    }
+
+    this.builder = this.builder
+      .withFlag('--resultformat', 'human')
+      .withFlag('--loglevel', 'error');
+
+    this.testRunExecutorCommand = this.builder.build();
+    return this.testRunExecutorCommand;
+  }
+
+}
+
 export class ForceApexTestRunExecutor extends SfdxCommandletExecutor<
   ApexTestQuickPickItem
-> {
+  > {
   public build(data: ApexTestQuickPickItem): Command {
-    if (data.type === TestType.Suite) {
-      return new SfdxCommandBuilder()
-        .withDescription(nls.localize('force_apex_test_run_text'))
-        .withArg('force:apex:test:run')
-        .withFlag('--suitenames', `${data.label}`)
-        .withFlag('--resultformat', 'human')
-        .build();
-    } else if (data.type === TestType.Class) {
-      return new SfdxCommandBuilder()
-        .withDescription(nls.localize('force_apex_test_run_text'))
-        .withArg('force:apex:test:run')
-        .withFlag('--classnames', `${data.label}`)
-        .withFlag('--resultformat', 'human')
-        .withArg('--synchronous')
-        .build();
-    } else {
-      return new SfdxCommandBuilder()
-        .withDescription(nls.localize('force_apex_test_run_text'))
-        .withArg('force:apex:test:run')
-        .withFlag('--resultformat', 'human')
-        .build();
-    }
+    const getCodeCoverage: boolean = sfdxCoreSettings
+      .getConfiguration()
+      .get('retrieve-test-code-coverage') as boolean;
+    const factory: ForceApexTestRunCommandFactory = new ForceApexTestRunCommandFactory(data, getCodeCoverage);
+    return factory.constructExecutorCommand();
   }
 }
 
 const workspaceChecker = new SfdxWorkspaceChecker();
 const parameterGatherer = new TestsSelector();
 
-export function forceApexTestRun() {
+export async function forceApexTestRun() {
   const commandlet = new SfdxCommandlet(
     workspaceChecker,
     parameterGatherer,
     new ForceApexTestRunExecutor()
   );
-  commandlet.run();
+  await commandlet.run();
 }

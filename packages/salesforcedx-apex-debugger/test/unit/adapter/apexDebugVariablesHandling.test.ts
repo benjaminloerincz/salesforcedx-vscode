@@ -5,6 +5,7 @@
  * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 /* tslint:disable:no-unused-expression */
+import { RequestService } from '@salesforce/salesforcedx-utils-vscode/out/src/requestService';
 import { expect } from 'chai';
 import * as sinon from 'sinon';
 import { DebugProtocol } from 'vscode-debugprotocol/lib/debugProtocol';
@@ -20,16 +21,8 @@ import {
   ScopeContainer,
   VariableContainer
 } from '../../../src/adapter/apexDebug';
-import {
-  LocalValue,
-  OrgInfo,
-  Reference,
-  RequestService,
-  Value
-} from '../../../src/commands';
+import { LocalValue, Reference, Value } from '../../../src/commands';
 import { BreakpointService } from '../../../src/core/breakpointService';
-import { SessionService } from '../../../src/core/sessionService';
-import { StreamingService } from '../../../src/core/streamingService';
 import { ApexDebugForTest } from './apexDebugForTest';
 
 describe('Debugger adapter variable handling - unit', () => {
@@ -52,6 +45,7 @@ describe('Debugger adapter variable handling - unit', () => {
       expect(variable.type).to.equal(value.nameForMessages);
       expect(variable.declaredTypeRef).to.equal(value.declaredTypeRef);
       expect(variable.value).to.equal(ApexVariable.valueAsString(value));
+      expect(variable.evaluateName).to.equal(ApexVariable.valueAsString(value));
       expect(variable.variablesReference).to.equal(20);
       expect(variable['kind']).to.equal(ApexVariableKind.Local);
     });
@@ -77,6 +71,7 @@ describe('Debugger adapter variable handling - unit', () => {
       value.declaredTypeRef = 'java/lang/String';
       variable = new ApexVariable(value, ApexVariableKind.Local, 20);
       expect(variable.value).to.equal('null');
+      expect(variable.evaluateName).to.equal('null');
     });
 
     it('Should correctly print empty string', async () => {
@@ -84,6 +79,7 @@ describe('Debugger adapter variable handling - unit', () => {
       value.declaredTypeRef = 'java/lang/String';
       variable = new ApexVariable(value, ApexVariableKind.Local, 20);
       expect(variable.value).to.equal("''");
+      expect(variable.evaluateName).to.equal("''");
     });
 
     it('Should correctly print string', async () => {
@@ -91,6 +87,7 @@ describe('Debugger adapter variable handling - unit', () => {
       value.declaredTypeRef = 'java/lang/String';
       variable = new ApexVariable(value, ApexVariableKind.Local, 20);
       expect(variable.value).to.equal("'123'");
+      expect(variable.evaluateName).to.equal("'123'");
     });
 
     it('Should correctly print value', async () => {
@@ -99,6 +96,7 @@ describe('Debugger adapter variable handling - unit', () => {
       value.declaredTypeRef = 'a/specific/type';
       variable = new ApexVariable(value, ApexVariableKind.Local, 20);
       expect(variable.value).to.equal('123');
+      expect(variable.evaluateName).to.equal('123');
     });
 
     it('Should correctly print null', async () => {
@@ -107,6 +105,7 @@ describe('Debugger adapter variable handling - unit', () => {
       value.declaredTypeRef = 'a/specific/type';
       variable = new ApexVariable(value, ApexVariableKind.Local, 20);
       expect(variable.value).to.equal('null');
+      expect(variable.evaluateName).to.equal('null');
     });
 
     it('Should compare Value of different kinds', async () => {
@@ -239,12 +238,7 @@ describe('Debugger adapter variable handling - unit', () => {
     let adapter: ApexDebugForTest;
 
     it('Should expand object correctly', async () => {
-      adapter = new ApexDebugForTest(
-        new SessionService(),
-        new StreamingService(),
-        new BreakpointService(),
-        new RequestService()
-      );
+      adapter = new ApexDebugForTest(new RequestService());
 
       const references: Reference[] = [
         {
@@ -280,12 +274,7 @@ describe('Debugger adapter variable handling - unit', () => {
     });
 
     it('Should expand list correctly', async () => {
-      adapter = new ApexDebugForTest(
-        new SessionService(),
-        new StreamingService(),
-        new BreakpointService(),
-        new RequestService()
-      );
+      adapter = new ApexDebugForTest(new RequestService());
 
       const references: Reference[] = [
         {
@@ -347,12 +336,7 @@ describe('Debugger adapter variable handling - unit', () => {
     });
 
     it('Should expand set correctly', async () => {
-      adapter = new ApexDebugForTest(
-        new SessionService(),
-        new StreamingService(),
-        new BreakpointService(),
-        new RequestService()
-      );
+      adapter = new ApexDebugForTest(new RequestService());
 
       const references: Reference[] = [
         {
@@ -390,12 +374,8 @@ describe('Debugger adapter variable handling - unit', () => {
     });
 
     it('Should expand map correctly', async () => {
-      adapter = new ApexDebugForTest(
-        new SessionService(),
-        new StreamingService(),
-        new BreakpointService(),
-        new RequestService()
-      );
+      adapter = new ApexDebugForTest(new RequestService());
+
       const tupleA = {
         key: {
           name: 'key',
@@ -455,12 +435,7 @@ describe('Debugger adapter variable handling - unit', () => {
     });
 
     it('Should not expand unknown reference type', async () => {
-      adapter = new ApexDebugForTest(
-        new SessionService(),
-        new StreamingService(),
-        new BreakpointService(),
-        new RequestService()
-      );
+      adapter = new ApexDebugForTest(new RequestService());
 
       const references: Reference[] = [
         {
@@ -491,12 +466,7 @@ describe('Debugger adapter variable handling - unit', () => {
     let referencesSpy: sinon.SinonStub;
 
     beforeEach(() => {
-      adapter = new ApexDebugForTest(
-        new SessionService(),
-        new StreamingService(),
-        new BreakpointService(),
-        new RequestService()
-      );
+      adapter = new ApexDebugForTest(new RequestService());
     });
 
     afterEach(() => {
@@ -544,7 +514,7 @@ describe('Debugger adapter variable handling - unit', () => {
           JSON.stringify({
             referencesResponse: {
               references: {
-                references: references
+                references
               }
             }
           })
@@ -571,17 +541,8 @@ describe('Debugger adapter variable handling - unit', () => {
     let adapter: ApexDebugForTest;
 
     beforeEach(() => {
-      adapter = new ApexDebugForTest(
-        new SessionService(),
-        new StreamingService(),
-        new BreakpointService(),
-        new RequestService()
-      );
+      adapter = new ApexDebugForTest(new RequestService());
       adapter.setSfdxProject('someProjectPath');
-      adapter.setOrgInfo({
-        instanceUrl: 'https://www.salesforce.com',
-        accessToken: '123'
-      } as OrgInfo);
       adapter.addRequestThread('07cFAKE');
     });
 
@@ -764,17 +725,8 @@ describe('Debugger adapter variable handling - unit', () => {
     let resolveApexIdToVariableReferenceSpy: sinon.SinonStub;
 
     beforeEach(() => {
-      adapter = new ApexDebugForTest(
-        new SessionService(),
-        new StreamingService(),
-        new BreakpointService(),
-        new RequestService()
-      );
+      adapter = new ApexDebugForTest(new RequestService());
       adapter.setSfdxProject('someProjectPath');
-      adapter.setOrgInfo({
-        instanceUrl: 'https://www.salesforce.com',
-        accessToken: '123'
-      } as OrgInfo);
       adapter.addRequestThread('07cFAKE');
     });
 
@@ -813,7 +765,7 @@ describe('Debugger adapter variable handling - unit', () => {
       await adapter.scopesRequest(
         {} as DebugProtocol.ScopesResponse,
         {
-          frameId: frameId
+          frameId
         } as DebugProtocol.ScopesArguments
       );
 
@@ -931,17 +883,8 @@ describe('Debugger adapter variable handling - unit', () => {
     let resetIdleTimersSpy: sinon.SinonSpy;
 
     beforeEach(() => {
-      adapter = new ApexDebugForTest(
-        new SessionService(),
-        new StreamingService(),
-        new BreakpointService(),
-        new RequestService()
-      );
+      adapter = new ApexDebugForTest(new RequestService());
       adapter.setSfdxProject('someProjectPath');
-      adapter.setOrgInfo({
-        instanceUrl: 'https://www.salesforce.com',
-        accessToken: '123'
-      } as OrgInfo);
       adapter.addRequestThread('07cFAKE');
       resetIdleTimersSpy = sinon.spy(
         ApexDebugForTest.prototype,
@@ -1038,10 +981,10 @@ export function newStringValue(
   slot?: number
 ): Value {
   const result: any = {
-    name: name,
+    name,
     declaredTypeRef: 'java/lang/String',
     nameForMessages: 'String',
-    value: value
+    value
   };
   if (typeof slot !== 'undefined') {
     result.slot = slot;

@@ -10,26 +10,22 @@ import {
   Command,
   CommandExecution
 } from '@salesforce/salesforcedx-utils-vscode/out/src/cli';
+import {
+  CancelResponse,
+  ContinueResponse,
+  DirFileNameSelection,
+  ParametersGatherer,
+  PostconditionChecker,
+  PreconditionChecker
+} from '@salesforce/salesforcedx-utils-vscode/out/src/types';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import glob = require('glob');
 import { channelService } from '../channels';
 import { nls } from '../messages';
-import { notificationService } from '../notifications';
+import { notificationService, ProgressNotification } from '../notifications';
 import { isSfdxProjectOpened } from '../predicates';
-import { CancellableStatusBar, taskViewService } from '../statuses';
-
-// Precondition checking
-////////////////////////
-export interface PreconditionChecker {
-  check(): boolean;
-}
-
-export interface PostconditionChecker<T> {
-  check(
-    inputs: ContinueResponse<T> | CancelResponse
-  ): Promise<ContinueResponse<T> | CancelResponse>;
-}
+import { taskViewService } from '../statuses';
 
 export class LightningFilePathExistsChecker
   implements PostconditionChecker<DirFileNameSelection> {
@@ -51,10 +47,10 @@ export class LightningFilePathExistsChecker
       } else {
         const overwrite = await notificationService.showWarningMessage(
           nls.localize('warning_prompt_lightning_bundle_overwrite'),
-          nls.localize('warning_prompt_yes'),
-          nls.localize('warning_prompt_no')
+          nls.localize('warning_prompt_overwrite_confirm'),
+          nls.localize('warning_prompt_overwrite_cancel')
         );
-        if (overwrite === nls.localize('warning_prompt_yes')) {
+        if (overwrite === nls.localize('warning_prompt_overwrite_confirm')) {
           return inputs;
         }
       }
@@ -87,10 +83,10 @@ export class FilePathExistsChecker
       } else {
         const overwrite = await notificationService.showWarningMessage(
           nls.localize('warning_prompt_file_overwrite'),
-          nls.localize('warning_prompt_yes'),
-          nls.localize('warning_prompt_no')
+          nls.localize('warning_prompt_overwrite_confirm'),
+          nls.localize('warning_prompt_overwrite_cancel')
         );
-        if (overwrite === nls.localize('warning_prompt_yes')) {
+        if (overwrite === nls.localize('warning_prompt_overwrite_confirm')) {
           return inputs;
         }
       }
@@ -124,24 +120,9 @@ export class EmptyPreChecker implements PreconditionChecker {
   }
 }
 
-// Input gathering
-//////////////////
-export interface ContinueResponse<T> {
-  type: 'CONTINUE';
-  data: T;
-}
-
-export interface CancelResponse {
-  type: 'CANCEL';
-}
-
-export interface ParametersGatherer<T> {
-  gather(): Promise<CancelResponse | ContinueResponse<T>>;
-}
-
 export class CompositeParametersGatherer<T> implements ParametersGatherer<T> {
-  private readonly gatherers: ParametersGatherer<any>[];
-  public constructor(...gatherers: ParametersGatherer<any>[]) {
+  private readonly gatherers: Array<ParametersGatherer<any>>;
+  public constructor(...gatherers: Array<ParametersGatherer<any>>) {
     this.gatherers = gatherers;
   }
   public async gather(): Promise<CancelResponse | ContinueResponse<T>> {
@@ -204,11 +185,6 @@ export class FileSelector implements ParametersGatherer<FileSelection> {
   }
 }
 
-export type DirFileNameSelection = {
-  fileName: string;
-  outputdir: string;
-};
-
 export class SelectFileName
   implements ParametersGatherer<{ fileName: string }> {
   public async gather(): Promise<
@@ -246,9 +222,9 @@ export abstract class SelectDirPath
         ? path.relative(rootPath, this.explorerDir)
         : await vscode.window.showQuickPick(
             this.globDirs(rootPath, this.globKeyWord),
-            <vscode.QuickPickOptions>{
+            {
               placeHolder: nls.localize('parameter_gatherer_enter_dir_name')
-            }
+            } as vscode.QuickPickOptions
           );
     }
     return outputdir
@@ -313,6 +289,24 @@ export class SelectUsername
   }
 }
 
+export class DemoModePromptGatherer implements ParametersGatherer<{}> {
+  private readonly LOGOUT_RESPONSE = 'Cancel';
+  private readonly DO_NOT_LOGOUT_RESPONSE = 'Authorize Org';
+  private readonly prompt = nls.localize('demo_mode_prompt');
+
+  public async gather(): Promise<CancelResponse | ContinueResponse<{}>> {
+    const response = await vscode.window.showInformationMessage(
+      this.prompt,
+      this.DO_NOT_LOGOUT_RESPONSE,
+      this.LOGOUT_RESPONSE
+    );
+
+    return response && response === this.LOGOUT_RESPONSE
+      ? { type: 'CONTINUE', data: {} }
+      : { type: 'CANCEL' };
+  }
+}
+
 // Command Execution
 ////////////////////
 export interface CommandletExecutor<T> {
@@ -323,25 +317,30 @@ export interface CommandletExecutor<T> {
 
 export abstract class SfdxCommandletExecutor<T>
   implements CommandletExecutor<T> {
+  protected showChannelOutput = true;
+
   protected attachExecution(
     execution: CommandExecution,
     cancellationTokenSource: vscode.CancellationTokenSource,
     cancellationToken: vscode.CancellationToken
   ) {
     channelService.streamCommandOutput(execution);
-    channelService.showChannelOutput();
+
+    if (this.showChannelOutput) {
+      channelService.showChannelOutput();
+    }
+
     notificationService.reportCommandExecutionStatus(
       execution,
       cancellationToken
     );
-    CancellableStatusBar.show(execution, cancellationTokenSource);
+    ProgressNotification.show(execution, cancellationTokenSource);
     taskViewService.addCommandExecution(execution, cancellationTokenSource);
   }
 
   public execute(response: ContinueResponse<T>): void {
     const cancellationTokenSource = new vscode.CancellationTokenSource();
     const cancellationToken = cancellationTokenSource.token;
-
     const execution = new CliCommandExecutor(this.build(response.data), {
       cwd: vscode.workspace.rootPath
     }).execute(cancellationToken);
@@ -378,6 +377,9 @@ export class SfdxCommandlet<T> {
         case 'CONTINUE':
           return this.executor.execute(inputs);
         case 'CANCEL':
+          if (inputs.msg) {
+            notificationService.showErrorMessage(inputs.msg);
+          }
           return;
       }
     }

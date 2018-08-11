@@ -6,6 +6,7 @@
  */
 
 import { SfdxCommandBuilder } from '@salesforce/salesforcedx-utils-vscode/out/src/cli';
+import { RequestService } from '@salesforce/salesforcedx-utils-vscode/out/src/requestService';
 import { expect } from 'chai';
 import * as sinon from 'sinon';
 import {
@@ -31,7 +32,7 @@ describe('Debugger breakpoint service', () => {
 
   describe('Helpers', () => {
     beforeEach(() => {
-      service = new BreakpointService();
+      service = new BreakpointService(new RequestService());
     });
 
     it('Should detect an Apex Debugger breakpoint ID by key prefix', () => {
@@ -141,18 +142,21 @@ describe('Debugger breakpoint service', () => {
   });
 
   describe('Create line breakpoint', () => {
-    let origSpawn: any, mySpawn: any;
+    let origSpawn: any;
+    let mySpawn: any;
     let cmdWithArgSpy: sinon.SinonSpy;
     let cmdWithFlagSpy: sinon.SinonSpy;
+    let cmdWithJsonSpy: sinon.SinonSpy;
     let cmdBuildSpy: sinon.SinonSpy;
 
     beforeEach(() => {
-      service = new BreakpointService();
+      service = new BreakpointService(new RequestService());
       origSpawn = childProcess.spawn;
       mySpawn = mockSpawn();
       childProcess.spawn = mySpawn;
       cmdWithArgSpy = sinon.spy(SfdxCommandBuilder.prototype, 'withArg');
       cmdWithFlagSpy = sinon.spy(SfdxCommandBuilder.prototype, 'withFlag');
+      cmdWithJsonSpy = sinon.spy(SfdxCommandBuilder.prototype, 'withJson');
       cmdBuildSpy = sinon.spy(SfdxCommandBuilder.prototype, 'build');
     });
 
@@ -160,6 +164,7 @@ describe('Debugger breakpoint service', () => {
       childProcess.spawn = origSpawn;
       cmdWithArgSpy.restore();
       cmdWithFlagSpy.restore();
+      cmdWithJsonSpy.restore();
       cmdBuildSpy.restore();
     });
 
@@ -188,7 +193,7 @@ describe('Debugger breakpoint service', () => {
       expect(cmdWithArgSpy.getCall(1).args).to.have.same.members([
         '--usetoolingapi'
       ]);
-      expect(cmdWithArgSpy.getCall(2).args).to.have.same.members(['--json']);
+      expect(cmdWithJsonSpy.calledOnce).to.equal(true);
       expect(cmdBuildSpy.calledOnce).to.equal(true);
     });
 
@@ -250,18 +255,21 @@ describe('Debugger breakpoint service', () => {
   });
 
   describe('Create exception breakpoint', () => {
-    let origSpawn: any, mySpawn: any;
+    let origSpawn: any;
+    let mySpawn: any;
     let cmdWithArgSpy: sinon.SinonSpy;
     let cmdWithFlagSpy: sinon.SinonSpy;
+    let cmdWithJsonSpy: sinon.SinonSpy;
     let cmdBuildSpy: sinon.SinonSpy;
 
     beforeEach(() => {
-      service = new BreakpointService();
+      service = new BreakpointService(new RequestService());
       origSpawn = childProcess.spawn;
       mySpawn = mockSpawn();
       childProcess.spawn = mySpawn;
       cmdWithArgSpy = sinon.spy(SfdxCommandBuilder.prototype, 'withArg');
       cmdWithFlagSpy = sinon.spy(SfdxCommandBuilder.prototype, 'withFlag');
+      cmdWithJsonSpy = sinon.spy(SfdxCommandBuilder.prototype, 'withJson');
       cmdBuildSpy = sinon.spy(SfdxCommandBuilder.prototype, 'build');
     });
 
@@ -269,6 +277,7 @@ describe('Debugger breakpoint service', () => {
       childProcess.spawn = origSpawn;
       cmdWithArgSpy.restore();
       cmdWithFlagSpy.restore();
+      cmdWithJsonSpy.restore();
       cmdBuildSpy.restore();
     });
 
@@ -296,24 +305,27 @@ describe('Debugger breakpoint service', () => {
       expect(cmdWithArgSpy.getCall(1).args).to.have.same.members([
         '--usetoolingapi'
       ]);
-      expect(cmdWithArgSpy.getCall(2).args).to.have.same.members(['--json']);
+      expect(cmdWithJsonSpy.calledOnce).to.equal(true);
       expect(cmdBuildSpy.calledOnce).to.equal(true);
     });
   });
 
   describe('Delete breakpoint', () => {
-    let origSpawn: any, mySpawn: any;
+    let origSpawn: any;
+    let mySpawn: any;
     let cmdWithArgSpy: sinon.SinonSpy;
     let cmdWithFlagSpy: sinon.SinonSpy;
+    let cmdWithJsonSpy: sinon.SinonSpy;
     let cmdBuildSpy: sinon.SinonSpy;
 
     beforeEach(() => {
-      service = new BreakpointService();
+      service = new BreakpointService(new RequestService());
       origSpawn = childProcess.spawn;
       mySpawn = mockSpawn();
       childProcess.spawn = mySpawn;
       cmdWithArgSpy = sinon.spy(SfdxCommandBuilder.prototype, 'withArg');
       cmdWithFlagSpy = sinon.spy(SfdxCommandBuilder.prototype, 'withFlag');
+      cmdWithJsonSpy = sinon.spy(SfdxCommandBuilder.prototype, 'withJson');
       cmdBuildSpy = sinon.spy(SfdxCommandBuilder.prototype, 'build');
     });
 
@@ -321,6 +333,7 @@ describe('Debugger breakpoint service', () => {
       childProcess.spawn = origSpawn;
       cmdWithArgSpy.restore();
       cmdWithFlagSpy.restore();
+      cmdWithJsonSpy.restore();
       cmdBuildSpy.restore();
     });
 
@@ -347,7 +360,7 @@ describe('Debugger breakpoint service', () => {
       expect(cmdWithArgSpy.getCall(1).args).to.have.same.members([
         '--usetoolingapi'
       ]);
-      expect(cmdWithArgSpy.getCall(2).args).to.have.same.members(['--json']);
+      expect(cmdWithJsonSpy.calledOnce).to.equal(true);
       expect(cmdBuildSpy.calledOnce).to.equal(true);
     });
 
@@ -400,7 +413,7 @@ describe('Debugger breakpoint service', () => {
     let getTyperefForSpy: sinon.SinonStub;
 
     beforeEach(() => {
-      service = new BreakpointService();
+      service = new BreakpointService(new RequestService());
       service.cacheLineBreakpoint('file:///foo.cls', 3, '07bFAKE3');
       service.cacheLineBreakpoint('file:///foo.cls', 4, '07bFAKE4');
       service.cacheLineBreakpoint('file:///foo.cls', 5, '07bFAKE5');

@@ -1,6 +1,6 @@
 {
   "name": "salesforcedx-vscode-core",
-  "displayName": "Salesforce CLI integration for Visual Studio Code",
+  "displayName": "Salesforce CLI Integration for Visual Studio Code",
   "description": "Provides integration with the Salesforce CLI",
   "qna": "https://github.com/forcedotcom/salesforcedx-vscode/issues",
   "bugs": {
@@ -9,30 +9,39 @@
   "repository": {
     "url": "https://github.com/forcedotcom/salesforcedx-vscode"
   },
-  "icon": "images/icon.png",
+  "icon": "images/VSCodeCore.png",
   "galleryBanner": {
     "color": "#ECECEC",
     "theme": "light"
   },
-  "version": "41.12.0",
+  "aiKey": "ec3632a4-df47-47a4-98dc-8134cacbaf7e",
+  "version": "43.11.0",
   "publisher": "salesforce",
   "license": "BSD-3-Clause",
   "engines": {
-    "vscode": "^1.17.0"
+    "vscode": "^1.23.0"
   },
   "categories": ["Other"],
   "dependencies": {
-    "@salesforce/salesforcedx-sobjects-faux-generator": "41.12.0",
-    "@salesforce/salesforcedx-utils-vscode": "41.12.0",
+    "@salesforce/salesforcedx-sobjects-faux-generator": "43.11.0",
+    "@salesforce/salesforcedx-utils-vscode": "43.11.0",
+    "adm-zip": "0.4.7",
     "glob": "^7.1.2",
-    "rxjs": "^5.4.1"
+    "moment": "2.20.1",
+    "rxjs": "^5.4.1",
+    "sanitize-filename": "^1.6.1",
+    "shelljs": "^0.8.1",
+    "vscode-extension-telemetry": "0.0.17"
   },
   "devDependencies": {
+    "@types/adm-zip": "^0.4.31",
     "@types/chai": "^4.0.0",
     "@types/glob": "^5.0.30",
     "@types/mocha": "2.2.38",
-    "@types/node": "^6.0.40",
+    "@types/node": "^7.0.0",
     "@types/path-exists": "^1.0.29",
+    "@types/sanitize-filename": "^1.1.28",
+    "@types/shelljs": "^0.7.8",
     "@types/sinon": "^2.3.2",
     "chai": "^4.0.2",
     "cross-env": "^5.0.5",
@@ -40,8 +49,8 @@
     "mock-spawn": "0.2.6",
     "nyc": "^11.0.2",
     "sinon": "^2.3.6",
-    "typescript": "2.4.0",
-    "vscode": "1.1.10"
+    "typescript": "2.6.2",
+    "vscode": "1.1.17"
   },
   "scripts": {
     "vscode:prepublish": "npm prune --production",
@@ -61,7 +70,9 @@
   },
   "activationEvents": [
     "workspaceContains:sfdx-project.json",
-    "onCommand:sfdx.force.project.create"
+    "onCommand:sfdx.force.project.create",
+    "onCommand:sfdx.force.project.with.manifest.create",
+    "onCommand:sfdx.debug.isv.bootstrap"
   ],
   "main": "./out/src",
   "contributes": {
@@ -80,43 +91,82 @@
           "when": "view == sfdx.force.tasks.view"
         }
       ],
+      "editor/context": [
+        {
+          "command": "sfdx.force.source.retrieve.current.file",
+          "when":
+            "sfdx:project_opened && config.salesforcedx-vscode-core.change_set_based_tools.enabled"
+        },
+        {
+          "command": "sfdx.force.source.deploy.current.file",
+          "when":
+            "sfdx:project_opened && config.salesforcedx-vscode-core.change_set_based_tools.enabled"
+        }
+      ],
       "explorer/context": [
         {
           "command": "sfdx.force.apex.class.create",
-          "when": "explorerResourceIsFolder && sfdx:project_opened"
+          "when":
+            "explorerResourceIsFolder && resourceFilename != aura && resourceFilename != lightningcomponents && sfdx:project_opened"
         },
         {
           "command": "sfdx.force.visualforce.component.create",
-          "when": "explorerResourceIsFolder && sfdx:project_opened"
+          "when":
+            "explorerResourceIsFolder && resourceFilename != aura && resourceFilename != lightningcomponents && sfdx:project_opened"
         },
         {
           "command": "sfdx.force.visualforce.page.create",
-          "when": "explorerResourceIsFolder && sfdx:project_opened"
+          "when":
+            "explorerResourceIsFolder && resourceFilename != aura && resourceFilename != lightningcomponents && sfdx:project_opened"
         },
         {
           "command": "sfdx.force.lightning.app.create",
-          "when": "explorerResourceIsFolder && sfdx:project_opened"
+          "when":
+            "explorerResourceIsFolder && resourceFilename == aura && sfdx:project_opened"
         },
         {
           "command": "sfdx.force.lightning.component.create",
-          "when": "explorerResourceIsFolder && sfdx:project_opened"
+          "when":
+            "explorerResourceIsFolder && resourceFilename == aura && sfdx:project_opened"
         },
         {
           "command": "sfdx.force.lightning.event.create",
-          "when": "explorerResourceIsFolder && sfdx:project_opened"
+          "when":
+            "explorerResourceIsFolder && resourceFilename == aura && sfdx:project_opened"
         },
         {
           "command": "sfdx.force.lightning.interface.create",
-          "when": "explorerResourceIsFolder && sfdx:project_opened"
+          "when":
+            "explorerResourceIsFolder && resourceFilename == aura && sfdx:project_opened"
         },
         {
           "command": "sfdx.force.apex.trigger.create",
-          "when": "explorerResourceIsFolder && sfdx:project_opened"
+          "when":
+            "explorerResourceIsFolder && resourceFilename != aura && resourceFilename != lightningcomponents && sfdx:project_opened"
+        },
+        {
+          "command": "sfdx.force.source.retrieve",
+          "when":
+            "sfdx:project_opened && config.salesforcedx-vscode-core.change_set_based_tools.enabled"
+        },
+        {
+          "command": "sfdx.force.source.deploy",
+          "when":
+            "sfdx:project_opened && config.salesforcedx-vscode-core.change_set_based_tools.enabled"
         }
       ],
       "commandPalette": [
         {
+          "command": "sfdx.force.auth.dev.hub",
+          "when": "sfdx:project_opened"
+        },
+        {
           "command": "sfdx.force.auth.web.login",
+          "when":
+            "sfdx:project_opened && config.salesforcedx-vscode-core.change_set_based_tools.enabled"
+        },
+        {
+          "command": "sfdx.force.auth.logout.all",
           "when": "sfdx:project_opened"
         },
         {
@@ -129,31 +179,31 @@
         },
         {
           "command": "sfdx.force.source.pull",
-          "when": "sfdx:project_opened"
+          "when": "sfdx:project_opened && !sfdx:isv_debug_project"
         },
         {
           "command": "sfdx.force.source.pull.force",
-          "when": "sfdx:project_opened"
+          "when": "sfdx:project_opened && !sfdx:isv_debug_project"
         },
         {
           "command": "sfdx.force.source.push",
-          "when": "sfdx:project_opened"
+          "when": "sfdx:project_opened && !sfdx:isv_debug_project"
         },
         {
           "command": "sfdx.force.source.push.force",
-          "when": "sfdx:project_opened"
+          "when": "sfdx:project_opened && !sfdx:isv_debug_project"
         },
         {
           "command": "sfdx.force.source.status",
-          "when": "sfdx:project_opened"
+          "when": "sfdx:project_opened && !sfdx:isv_debug_project"
         },
         {
           "command": "sfdx.force.source.status.local",
-          "when": "sfdx:project_opened"
+          "when": "sfdx:project_opened && !sfdx:isv_debug_project"
         },
         {
           "command": "sfdx.force.source.status.remote",
-          "when": "sfdx:project_opened"
+          "when": "sfdx:project_opened && !sfdx:isv_debug_project"
         },
         {
           "command": "sfdx.force.apex.test.run",
@@ -235,15 +285,75 @@
           "command": "sfdx.force.project.create"
         },
         {
+          "command": "sfdx.force.project.with.manifest.create",
+          "when":
+            "config.salesforcedx-vscode-core.change_set_based_tools.enabled"
+        },
+        {
           "command": "sfdx.force.apex.trigger.create",
           "when": "sfdx:project_opened"
+        },
+        {
+          "command": "sfdx.force.start.apex.debug.logging",
+          "when": "sfdx:project_opened && sfdx:replay_debugger_extension"
+        },
+        {
+          "command": "sfdx.force.stop.apex.debug.logging",
+          "when": "sfdx:project_opened && sfdx:replay_debugger_extension"
+        },
+        {
+          "command": "sfdx.debug.isv.bootstrap"
+        },
+        {
+          "command": "sfdx.force.apex.test.last.class.run",
+          "when": "sfdx:project_opened && sfdx:has_cached_test_class"
+        },
+        {
+          "command": "sfdx.force.apex.test.last.method.run",
+          "when": "sfdx:project_opened && sfdx:has_cached_test_method"
+        },
+        {
+          "command": "sfdx.force.apex.test.class.run",
+          "when": "false"
+        },
+        {
+          "command": "sfdx.force.apex.test.method.run",
+          "when": "false"
+        },
+        {
+          "command": "sfdx.force.apex.log.get",
+          "when": "sfdx:project_opened"
+        },
+        {
+          "command": "sfdx.force.source.retrieve",
+          "when": "false"
+        },
+        {
+          "command": "sfdx.force.source.deploy",
+          "when": "false"
+        },
+        {
+          "command": "sfdx.force.source.retrieve.current.file",
+          "when": "false"
+        },
+        {
+          "command": "sfdx.force.source.deploy.current.file",
+          "when": "false"
         }
       ]
     },
     "commands": [
       {
-        "command": "sfdx.force.auth.web.login",
+        "command": "sfdx.force.auth.dev.hub",
         "title": "%force_auth_web_login_authorize_dev_hub_text%"
+      },
+      {
+        "command": "sfdx.force.auth.web.login",
+        "title": "%force_auth_web_login_authorize_org_text%"
+      },
+      {
+        "command": "sfdx.force.auth.logout.all",
+        "title": "%force_auth_logout_all_text%"
       },
       {
         "command": "sfdx.force.org.create",
@@ -284,6 +394,22 @@
       {
         "command": "sfdx.force.apex.test.run",
         "title": "%force_apex_test_run_text%"
+      },
+      {
+        "command": "sfdx.force.apex.test.last.class.run",
+        "title": "%force_apex_test_last_class_run_text%"
+      },
+      {
+        "command": "sfdx.force.apex.test.last.method.run",
+        "title": "%force_apex_test_last_method_run_text%"
+      },
+      {
+        "command": "sfdx.force.apex.test.class.run",
+        "title": "%force_apex_test_class_run_text%"
+      },
+      {
+        "command": "sfdx.force.apex.test.method.run",
+        "title": "%force_apex_test_method_run_text%"
       },
       {
         "command": "sfdx.force.task.stop",
@@ -362,13 +488,71 @@
         "title": "%force_project_create_text%"
       },
       {
+        "command": "sfdx.force.project.with.manifest.create",
+        "title": "%force_project_with_manifest_create_text%"
+      },
+      {
         "command": "sfdx.force.apex.trigger.create",
         "title": "%force_apex_trigger_create_text%"
+      },
+      {
+        "command": "sfdx.force.start.apex.debug.logging",
+        "title": "%force_start_apex_debug_logging%"
+      },
+      {
+        "command": "sfdx.force.stop.apex.debug.logging",
+        "title": "%force_stop_apex_debug_logging%"
+      },
+      {
+        "command": "sfdx.debug.isv.bootstrap",
+        "title": "%isv_bootstrap_command_text%"
+      },
+      {
+        "command": "sfdx.force.apex.log.get",
+        "title": "%force_apex_log_get_text%"
+      },
+      {
+        "command": "sfdx.force.source.retrieve",
+        "title": "%force_source_retrieve_text%"
+      },
+      {
+        "command": "sfdx.force.source.retrieve.current.file",
+        "title": "%force_source_retrieve_this_source_file_text%"
+      },
+      {
+        "command": "sfdx.force.source.deploy",
+        "title": "%force_source_deploy_text%"
+      },
+      {
+        "command": "sfdx.force.source.deploy.current.file",
+        "title": "%force_source_deploy_this_source_file_text%"
       }
     ],
     "configuration": {
       "type": "object",
-      "title": "%feature_previews_title%"
+      "title": "%feature_previews_title%",
+      "properties": {
+        "salesforcedx-vscode-core.show-cli-success-msg": {
+          "type": ["boolean"],
+          "default": true,
+          "description": "%show_cli_success_msg_description%"
+        },
+        "salesforcedx-vscode-core.change_set_based_tools.enabled": {
+          "type": ["boolean"],
+          "default": false,
+          "description": "%change_set_based_tools.enabled_description%"
+        },
+        "salesforcedx-vscode-core.retrieve-test-code-coverage": {
+          "type": ["boolean"],
+          "default": false,
+          "description": "%retrieve_test_code_coverage_text%"
+        },
+        "salesforcedx-vscode-core.telemetry.enabled": {
+          "type": ["boolean"],
+          "default": true,
+          "description": "%telemetry_enabled_description%"
+        }
+      }
     }
   }
 }

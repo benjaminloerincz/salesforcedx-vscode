@@ -10,33 +10,53 @@ import {
   Command,
   SfdxCommandBuilder
 } from '@salesforce/salesforcedx-utils-vscode/out/src/cli';
+import {
+  CancelResponse,
+  ContinueResponse,
+  ParametersGatherer,
+  PostconditionChecker
+} from '@salesforce/salesforcedx-utils-vscode/out/src/types';
 import * as fs from 'fs';
 import * as path from 'path';
 import { Observable } from 'rxjs/Observable';
 import * as vscode from 'vscode';
 import { channelService } from '../channels';
 import { nls } from '../messages';
-import { notificationService } from '../notifications';
-import { CancellableStatusBar, taskViewService } from '../statuses';
+import { notificationService, ProgressNotification } from '../notifications';
+import { taskViewService } from '../statuses';
 import {
-  CancelResponse,
   CompositeParametersGatherer,
-  ContinueResponse,
   EmptyPreChecker,
-  ParametersGatherer,
-  PostconditionChecker,
   SfdxCommandlet,
   SfdxCommandletExecutor
 } from './commands';
 
-export class ForceProjectCreateExecutor extends SfdxCommandletExecutor<{}> {
+type forceProjectCreateOptions = {
+  isProjectWithManifest: boolean;
+};
+
+export class ForceProjectCreateExecutor extends SfdxCommandletExecutor<
+  ProjectNameAndPath
+> {
+  private readonly options: forceProjectCreateOptions;
+
+  public constructor(options = { isProjectWithManifest: false }) {
+    super();
+    this.options = options;
+  }
+
   public build(data: ProjectNameAndPath): Command {
-    return new SfdxCommandBuilder()
+    const builder = new SfdxCommandBuilder()
       .withDescription(nls.localize('force_project_create_text'))
       .withArg('force:project:create')
       .withFlag('--projectname', data.projectName)
-      .withFlag('--outputdir', data.projectUri)
-      .build();
+      .withFlag('--outputdir', data.projectUri);
+
+    if (this.options.isProjectWithManifest) {
+      builder.withArg('--manifest');
+    }
+
+    return builder.build();
   }
 
   public execute(response: ContinueResponse<ProjectNameAndPath>): void {
@@ -48,10 +68,10 @@ export class ForceProjectCreateExecutor extends SfdxCommandletExecutor<{}> {
     }).execute(cancellationToken);
 
     execution.processExitSubject.subscribe(async data => {
-      if (data != undefined && data.toString() === '0') {
+      if (data !== undefined && data.toString() === '0') {
         await vscode.commands.executeCommand(
           'vscode.openFolder',
-          vscode.Uri.parse(
+          vscode.Uri.file(
             path.join(response.data.projectUri, response.data.projectName)
           )
         );
@@ -63,7 +83,7 @@ export class ForceProjectCreateExecutor extends SfdxCommandletExecutor<{}> {
       (execution.stderrSubject as any) as Observable<Error | undefined>
     );
     channelService.streamCommandOutput(execution);
-    CancellableStatusBar.show(execution, cancellationTokenSource);
+    ProgressNotification.show(execution, cancellationTokenSource);
     taskViewService.addCommandExecution(execution, cancellationTokenSource);
   }
 }
@@ -79,12 +99,21 @@ export interface ProjectName {
 }
 
 export class SelectProjectName implements ParametersGatherer<ProjectName> {
+  private readonly prefillValueProvider?: () => string;
+
+  constructor(prefillValueProvider?: () => string) {
+    this.prefillValueProvider = prefillValueProvider;
+  }
+
   public async gather(): Promise<
     CancelResponse | ContinueResponse<ProjectName>
   > {
     const projectNameInputOptions = {
       prompt: nls.localize('parameter_gatherer_enter_project_name')
     } as vscode.InputBoxOptions;
+    if (this.prefillValueProvider) {
+      projectNameInputOptions.value = this.prefillValueProvider();
+    }
     const projectName = await vscode.window.showInputBox(
       projectNameInputOptions
     );
@@ -124,10 +153,10 @@ export class PathExistsChecker
       } else {
         const overwrite = await notificationService.showWarningMessage(
           nls.localize('warning_prompt_dir_overwrite'),
-          nls.localize('warning_prompt_yes'),
-          nls.localize('warning_prompt_no')
+          nls.localize('warning_prompt_overwrite_confirm'),
+          nls.localize('warning_prompt_overwrite_cancel')
         );
-        if (overwrite === nls.localize('warning_prompt_yes')) {
+        if (overwrite === nls.localize('warning_prompt_overwrite_confirm')) {
           return inputs;
         }
       }
@@ -143,14 +172,22 @@ const parameterGatherer = new CompositeParametersGatherer(
 );
 const pathExistsChecker = new PathExistsChecker();
 
-const executor = new ForceProjectCreateExecutor();
-const commandlet = new SfdxCommandlet(
+const sfdxProjectCreateCommandlet = new SfdxCommandlet(
   workspaceChecker,
   parameterGatherer,
-  executor,
+  new ForceProjectCreateExecutor(),
   pathExistsChecker
 );
+export async function forceSfdxProjectCreate() {
+  await sfdxProjectCreateCommandlet.run();
+}
 
-export function forceProjectCreate() {
-  commandlet.run();
+const projectWithManifestCreateCommandlet = new SfdxCommandlet(
+  workspaceChecker,
+  parameterGatherer,
+  new ForceProjectCreateExecutor({ isProjectWithManifest: true }),
+  pathExistsChecker
+);
+export async function forceProjectWithManifestCreate() {
+  await projectWithManifestCreateCommandlet.run();
 }

@@ -5,6 +5,7 @@
  * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { RequestService } from '@salesforce/salesforcedx-utils-vscode/out/src/requestService';
 import { expect } from 'chai';
 import { Client as FayeClient } from 'faye';
 import * as sinon from 'sinon';
@@ -13,9 +14,12 @@ import { StreamingClient, StreamingClientInfoBuilder } from '../../../src/core';
 describe('Debugger streaming client', () => {
   describe('Helpers', () => {
     it('Should set & get replay ID', () => {
+      const requestService = new RequestService();
+      requestService.instanceUrl = 'https://www.salesforce.com';
+      requestService.accessToken = '123';
       const client = new StreamingClient(
         'https://www.salesforce.com',
-        '123',
+        requestService,
         new StreamingClientInfoBuilder().build()
       );
       client.setReplayId(2);
@@ -36,9 +40,12 @@ describe('Debugger streaming client', () => {
     });
 
     it('Should set headers', () => {
+      const requestService = new RequestService();
+      requestService.instanceUrl = 'https://www.salesforce.com';
+      requestService.accessToken = '123';
       const client = new StreamingClient(
         'https://www.salesforce.com',
-        '123',
+        requestService,
         new StreamingClientInfoBuilder().build()
       );
 

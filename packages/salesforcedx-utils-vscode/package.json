@@ -3,20 +3,23 @@
   "displayName": "SFDX Utilities for VS Code",
   "description":
     "Provides utilies to interface the SFDX libraries with VS Code",
-  "version": "41.12.0",
+  "version": "43.11.0",
   "publisher": "salesforce",
   "license": "BSD-3-Clause",
   "categories": ["Other"],
   "dependencies": {
+    "cross-spawn": "6.0.5",
     "rxjs": "^5.4.1",
     "tree-kill": "^1.1.0"
   },
   "devDependencies": {
     "@types/chai": "^4.0.0",
+    "@types/cross-spawn": "6.0.0",
     "@types/glob": "^5.0.30",
     "@types/mocha": "^2.2.38",
     "@types/node": "^6.0.40",
     "@types/shelljs": "^0.7.4",
+    "@types/sinon": "^2.3.2",
     "chai": "^4.0.2",
     "decache": "^4.1.0",
     "glob": "^7.1.2",
@@ -24,26 +27,28 @@
     "mocha": "^3.2.0",
     "mocha-junit-reporter": "^1.13.0",
     "mocha-multi-reporters": "^1.1.4",
+    "mock-spawn": "0.2.6",
     "nyc": "^11.0.2",
     "remap-istanbul": "^0.9.5",
+    "request-light": "0.2.1",
     "shelljs": "^0.7.8",
+    "sinon": "^2.3.6",
     "source-map-support": "^0.4.15",
-    "typescript": "2.4.0"
+    "typescript": "2.6.2"
   },
   "engines": {
-    "vscode": "^1.17.0"
+    "vscode": "^1.23.0"
   },
   "scripts": {
-    "vscode:package": "npm prune --production",
     "compile": "tsc -p ./",
     "lint": "tslint --project .",
     "watch": "tsc -watch -p .",
     "clean":
       "shx rm -rf node_modules && shx rm -rf out && shx rm -rf coverage && shx rm -rf .nyc_output",
     "test":
-      "./node_modules/.bin/nyc ./node_modules/.bin/_mocha --recursive out/test --reporter mocha-multi-reporters --timeout 20000",
+      "./node_modules/.bin/nyc ./node_modules/.bin/_mocha --recursive out/test --reporter mocha-multi-reporters --timeout 20000 --reporter mocha-multi-reporters --reporter-options configFile=../../config/mochaConfig.json",
     "test:unit":
-      "./node_modules/.bin/nyc ./node_modules/.bin/_mocha --recursive out/test --reporter mocha-multi-reporters --timeout 20000",
+      "./node_modules/.bin/nyc ./node_modules/.bin/_mocha --recursive out/test --reporter mocha-multi-reporters --timeout 20000 --reporter mocha-multi-reporters --reporter-options configFile=../../config/mochaConfig.json",
     "coverage": "./node_modules/.bin/nyc npm test"
   },
   "nyc": {

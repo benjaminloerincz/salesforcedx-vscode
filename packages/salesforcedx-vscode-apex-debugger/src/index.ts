@@ -6,6 +6,7 @@
  */
 
 import {
+  DEBUGGER_TYPE,
   EXCEPTION_BREAKPOINT_BREAK_MODE_ALWAYS,
   EXCEPTION_BREAKPOINT_BREAK_MODE_NEVER,
   EXCEPTION_BREAKPOINT_REQUEST,
@@ -14,6 +15,8 @@ import {
   HOTSWAP_REQUEST,
   LINE_BREAKPOINT_INFO_REQUEST,
   LIST_EXCEPTION_BREAKPOINTS_REQUEST,
+  LIVESHARE_DEBUG_TYPE_REQUEST,
+  LIVESHARE_DEBUGGER_TYPE,
   SetExceptionBreakpointsArguments,
   SHOW_MESSAGE_EVENT,
   VscodeDebuggerMessage,
@@ -24,11 +27,14 @@ import {
 import * as vscode from 'vscode';
 import { DebugProtocol } from 'vscode-debugprotocol';
 import { nls } from './messages';
-
+import { telemetryService } from './telemetry';
 const cachedExceptionBreakpoints: Map<
   string,
   ExceptionBreakpointItem
 > = new Map();
+const sfdxCoreExtension = vscode.extensions.getExtension(
+  'salesforce.salesforcedx-vscode-core'
+);
 
 export class ApexDebuggerConfigurationProvider
   implements vscode.DebugConfigurationProvider {
@@ -36,10 +42,11 @@ export class ApexDebuggerConfigurationProvider
     folder: vscode.WorkspaceFolder | undefined,
     token?: vscode.CancellationToken
   ): vscode.ProviderResult<vscode.DebugConfiguration[]> {
+    // note: part of this is duplicated in bootstrapCmd.ts but not linked to avoid hard dependency from core to debugger
     return [
       {
         name: 'Launch Apex Debugger',
-        type: 'apex',
+        type: DEBUGGER_TYPE,
         request: 'launch',
         userIdFilter: [],
         requestTypeFilter: [],
@@ -50,11 +57,25 @@ export class ApexDebuggerConfigurationProvider
   }
 }
 
+export async function getDebuggerType(
+  session: vscode.DebugSession
+): Promise<string> {
+  let type = session.type;
+  if (type === LIVESHARE_DEBUGGER_TYPE) {
+    type = await session.customRequest(LIVESHARE_DEBUG_TYPE_REQUEST);
+  }
+  return type;
+}
+
 function registerCommands(): vscode.Disposable {
   const customEventHandler = vscode.debug.onDidReceiveDebugSessionCustomEvent(
     async event => {
       if (event && event.session) {
-        if (event.event === GET_LINE_BREAKPOINT_INFO_EVENT) {
+        const type = await getDebuggerType(event.session);
+        if (
+          type === DEBUGGER_TYPE &&
+          event.event === GET_LINE_BREAKPOINT_INFO_EVENT
+        ) {
           const sfdxApex = vscode.extensions.getExtension(
             'salesforce.salesforcedx-vscode-apex'
           );
@@ -66,7 +87,10 @@ function registerCommands(): vscode.Disposable {
             );
             console.log('Retrieved line breakpoint info from language server');
           }
-        } else if (event.event === SHOW_MESSAGE_EVENT) {
+        } else if (
+          type === DEBUGGER_TYPE &&
+          event.event === SHOW_MESSAGE_EVENT
+        ) {
           const eventBody = event.body as VscodeDebuggerMessage;
           if (eventBody && eventBody.type && eventBody.message) {
             switch (eventBody.type as VscodeDebuggerMessageType) {
@@ -84,7 +108,10 @@ function registerCommands(): vscode.Disposable {
               }
             }
           }
-        } else if (event.event === GET_WORKSPACE_SETTINGS_EVENT) {
+        } else if (
+          type === DEBUGGER_TYPE &&
+          event.event === GET_WORKSPACE_SETTINGS_EVENT
+        ) {
           const config = vscode.workspace.getConfiguration();
           event.session.customRequest(WORKSPACE_SETTINGS_REQUEST, {
             proxyUrl: config.get('http.proxy', '') as string,
@@ -110,6 +137,7 @@ function registerCommands(): vscode.Disposable {
       session.customRequest(EXCEPTION_BREAKPOINT_REQUEST, args);
     });
   });
+
   return vscode.Disposable.from(
     customEventHandler,
     exceptionBreakpointCmd,
@@ -262,7 +290,7 @@ function notifyDebuggerSessionFileChanged(): void {
   }
 }
 
-export function activate(context: vscode.ExtensionContext) {
+export async function activate(context: vscode.ExtensionContext) {
   console.log('Apex Debugger Extension Activated');
   const commands = registerCommands();
   const fileWatchers = registerFileWatchers();
@@ -273,8 +301,21 @@ export function activate(context: vscode.ExtensionContext) {
       new ApexDebuggerConfigurationProvider()
     )
   );
+
+  // Telemetry
+  if (sfdxCoreExtension && sfdxCoreExtension.exports) {
+    sfdxCoreExtension.exports.telemetryService.showTelemetryMessage();
+
+    telemetryService.initializeService(
+      sfdxCoreExtension.exports.telemetryService.getReporter(),
+      sfdxCoreExtension.exports.telemetryService.isTelemetryEnabled()
+    );
+  }
+
+  telemetryService.sendExtensionActivationEvent();
 }
 
 export function deactivate() {
   console.log('Apex Debugger Extension Deactivated');
+  telemetryService.sendExtensionDeactivationEvent();
 }

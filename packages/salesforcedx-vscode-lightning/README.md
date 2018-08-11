@@ -1,10 +1,10 @@
-# salesforcedx-vscode-lightning
+# Lightning Component Code Editor for Visual Studio Code
 This extension uses the default HTML language server from VS Code to provide syntax highlighting, code completion, an outline view of your files, and a Salesforce Lightning Design System (SLDS) linter.
 
 For best results, use this extension with the other extensions in the [salesforcedx-vscode](https://marketplace.visualstudio.com/items?itemName=salesforce.salesforcedx-vscode) bundle.  
 
 ##  Prerequisites
-Before you set up this extension, make sure that you have [Visual Studio Code](https://code.visualstudio.com/download) v1.17 or later.  
+Before you set up this extension, make sure that you have [Visual Studio Code](https://code.visualstudio.com/download) v1.23 or later.  
 
 ## Features Provided by This Extension
 * Syntax highlighting in some sections of various files (`.page`, `.component`, `.app`, and so on)
@@ -31,6 +31,9 @@ Before you set up this extension, make sure that you have [Visual Studio Code](h
    Note: The linter won't run if SLDS is included as a static resource in your project.
 
    ![SLDS Linter detecting deprecated '--' class name syntax](https://raw.githubusercontent.com/forcedotcom/salesforcedx-vscode/develop/packages/salesforcedx-vscode-lightning/images/lightning_slds.png)
+
+## Bugs and Feedback
+To report issues with Salesforce Extensions for VS Code, open a [bug on GitHub](https://github.com/forcedotcom/salesforcedx-vscode/issues/new?template=Bug_report.md). If you would like to suggest a feature, create a [feature request on Github](https://github.com/forcedotcom/salesforcedx-vscode/issues/new?template=Feature_request.md).
 
 ## Resources
 * Trailhead: [Get Started with Salesforce DX](https://trailhead.salesforce.com/trails/sfdx_get_started)

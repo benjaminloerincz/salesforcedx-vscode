@@ -7,7 +7,7 @@
 
 import { Client as FayeClient } from 'faye';
 import os = require('os');
-import { RequestService } from '../commands';
+import { RequestService } from '@salesforce/salesforcedx-utils-vscode/out/src/requestService';
 import { DEFAULT_STREAMING_TIMEOUT_MS } from '../constants';
 import { nls } from '../messages';
 
@@ -127,23 +127,27 @@ export class StreamingClient {
 
   public constructor(
     url: string,
-    accessToken: string,
+    requestService: RequestService,
     clientInfo: StreamingClientInfo
   ) {
     this.clientInfo = clientInfo;
     this.client = new FayeClient(url, {
       timeout: this.clientInfo.timeout,
       proxy: {
-        origin: RequestService.getInstance().proxyUrl,
-        auth: RequestService.getInstance().proxyAuthorization
+        origin: requestService.proxyUrl,
+        auth: requestService.proxyAuthorization
       }
     });
-    this.client.setHeader('Authorization', `OAuth ${accessToken}`);
+    this.client.setHeader(
+      'Authorization',
+      `OAuth ${requestService.accessToken}`
+    );
     this.client.setHeader('Content-Type', 'application/json');
   }
 
   public async subscribe(): Promise<void> {
-    let subscribeAccept: () => void, subscribeReject: () => void;
+    let subscribeAccept: () => void;
+    let subscribeReject: () => void;
     const returnPromise = new Promise<
       void
     >((resolve: () => void, reject: () => void) => {
@@ -210,13 +214,6 @@ export class StreamingClient {
     return returnPromise;
   }
 
-  private sendSubscribeRequest(): void {
-    this.client.subscribe(
-      this.clientInfo.channel,
-      this.clientInfo.messageHandler
-    );
-  }
-
   public disconnect(): void {
     this.shouldDisconnect = true;
     if (this.client && this.connected) {
@@ -240,5 +237,12 @@ export class StreamingClient {
 
   public getClientInfo(): StreamingClientInfo {
     return this.clientInfo;
+  }
+
+  private sendSubscribeRequest(): void {
+    this.client.subscribe(
+      this.clientInfo.channel,
+      this.clientInfo.messageHandler
+    );
   }
 }

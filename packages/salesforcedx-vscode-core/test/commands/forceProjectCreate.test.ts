@@ -1,8 +1,15 @@
+/*
+ * Copyright (c) 2017, salesforce.com, inc.
+ * All rights reserved.
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ */
+
+import { ContinueResponse } from '@salesforce/salesforcedx-utils-vscode/out/src/types';
 import { expect } from 'chai';
 import * as path from 'path';
 import * as sinon from 'sinon';
 import * as vscode from 'vscode';
-import { ContinueResponse } from '../../src/commands/commands';
 import {
   ForceProjectCreateExecutor,
   PathExistsChecker,
@@ -96,8 +103,12 @@ describe('Force Project Create', () => {
 
     before(() => {
       showWarningBoxSpy = sinon.stub(vscode.window, 'showWarningMessage');
-      showWarningBoxSpy.onCall(0).returns(nls.localize('warning_prompt_no'));
-      showWarningBoxSpy.onCall(1).returns(nls.localize('warning_prompt_yes'));
+      showWarningBoxSpy
+        .onCall(0)
+        .returns(nls.localize('warning_prompt_overwrite_cancel'));
+      showWarningBoxSpy
+        .onCall(1)
+        .returns(nls.localize('warning_prompt_overwrite_confirm'));
     });
 
     after(() => {
@@ -156,6 +167,23 @@ describe('Force Project Create', () => {
       expect(createCommand.toCommand()).to.equal(
         `sfdx force:project:create --projectname ${PROJECT_NAME} --outputdir ${PROJECT_DIR[0]
           .fsPath}`
+      );
+      expect(createCommand.description).to.equal(
+        nls.localize('force_project_create_text')
+      );
+    });
+
+    it('Should build the project with manifest create command', async () => {
+      const forceProjectCreateBuilder = new ForceProjectCreateExecutor({
+        isProjectWithManifest: true
+      });
+      const createCommand = forceProjectCreateBuilder.build({
+        projectName: PROJECT_NAME,
+        projectUri: PROJECT_DIR[0].fsPath
+      });
+      expect(createCommand.toCommand()).to.equal(
+        `sfdx force:project:create --projectname ${PROJECT_NAME} --outputdir ${PROJECT_DIR[0]
+          .fsPath} --manifest`
       );
       expect(createCommand.description).to.equal(
         nls.localize('force_project_create_text')

@@ -1,3 +1,10 @@
+/*
+ * Copyright (c) 2017, salesforce.com, inc.
+ * All rights reserved.
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ */
+
 import { expect } from 'chai';
 import * as sinon from 'sinon';
 import * as vscode from 'vscode';
@@ -21,7 +28,7 @@ describe('Force Apex Test Run', () => {
       });
 
       expect(command.toCommand()).to.equal(
-        'sfdx force:apex:test:run --suitenames MySuite --resultformat human'
+        'sfdx force:apex:test:run --suitenames MySuite --resultformat human --loglevel error'
       );
       expect(command.description).to.equal(
         nls.localize('force_apex_test_run_text')
@@ -36,7 +43,7 @@ describe('Force Apex Test Run', () => {
       });
 
       expect(command.toCommand()).to.equal(
-        'sfdx force:apex:test:run --classnames MyTestClass --resultformat human --synchronous'
+        'sfdx force:apex:test:run --classnames MyTestClass --synchronous --resultformat human --loglevel error'
       );
       expect(command.description).to.equal(
         nls.localize('force_apex_test_run_text')
@@ -47,13 +54,13 @@ describe('Force Apex Test Run', () => {
       const command = builder.build({
         label: nls.localize('force_apex_test_run_all_test_label'),
         description: nls.localize(
-          'force_apex_test_run_all_tests_desription_text'
+          'force_apex_test_run_all_tests_description_text'
         ),
         type: TestType.All
       });
 
       expect(command.toCommand()).to.equal(
-        'sfdx force:apex:test:run --resultformat human'
+        'sfdx force:apex:test:run --resultformat human --loglevel error'
       );
       expect(command.description).to.equal(
         nls.localize('force_apex_test_run_text')
@@ -63,12 +70,11 @@ describe('Force Apex Test Run', () => {
 
   describe('Tests selector', () => {
     let quickPickStub: sinon.SinonStub;
-
     beforeEach(() => {
       quickPickStub = sinon.stub(vscode.window, 'showQuickPick').returns({
         label: nls.localize('force_apex_test_run_all_test_label'),
         description: nls.localize(
-          'force_apex_test_run_all_tests_desription_text'
+          'force_apex_test_run_all_tests_description_text'
         ),
         type: TestType.All
       });
@@ -95,7 +101,7 @@ describe('Force Apex Test Run', () => {
         nls.localize('force_apex_test_run_all_test_label')
       );
       expect(fileItems[2].description).to.equal(
-        nls.localize('force_apex_test_run_all_tests_desription_text')
+        nls.localize('force_apex_test_run_all_tests_description_text')
       );
       expect(fileItems[2].type).to.equal(TestType.All);
     });

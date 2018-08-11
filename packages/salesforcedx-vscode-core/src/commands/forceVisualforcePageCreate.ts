@@ -10,17 +10,19 @@ import {
   Command,
   SfdxCommandBuilder
 } from '@salesforce/salesforcedx-utils-vscode/out/src/cli';
+import {
+  ContinueResponse,
+  DirFileNameSelection
+} from '@salesforce/salesforcedx-utils-vscode/out/src/types';
 import * as path from 'path';
 import { Observable } from 'rxjs/Observable';
 import * as vscode from 'vscode';
 import { channelService } from '../channels';
 import { nls } from '../messages';
-import { notificationService } from '../notifications';
-import { CancellableStatusBar, taskViewService } from '../statuses';
+import { notificationService, ProgressNotification } from '../notifications';
+import { taskViewService } from '../statuses';
 import {
   CompositeParametersGatherer,
-  ContinueResponse,
-  DirFileNameSelection,
   FilePathExistsChecker,
   SelectFileName,
   SelectPrioritizedDirPath,
@@ -54,7 +56,7 @@ class ForceVisualForcePageCreateExecutor extends SfdxCommandletExecutor<
 
     execution.processExitSubject.subscribe(async data => {
       if (
-        data != undefined &&
+        data !== undefined &&
         data.toString() === '0' &&
         vscode.workspace.rootPath
       ) {
@@ -75,7 +77,7 @@ class ForceVisualForcePageCreateExecutor extends SfdxCommandletExecutor<
       (execution.stderrSubject as any) as Observable<Error | undefined>
     );
     channelService.streamCommandOutput(execution);
-    CancellableStatusBar.show(execution, cancellationTokenSource);
+    ProgressNotification.show(execution, cancellationTokenSource);
     taskViewService.addCommandExecution(execution, cancellationTokenSource);
   }
 }
@@ -95,5 +97,5 @@ export async function forceVisualforcePageCreate(explorerDir?: any) {
     new ForceVisualForcePageCreateExecutor(),
     filePathExistsChecker
   );
-  commandlet.run();
+  await commandlet.run();
 }

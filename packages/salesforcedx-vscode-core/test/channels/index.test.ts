@@ -57,7 +57,7 @@ describe('Channel', () => {
     });
 
     it('Should have proper name', () => {
-      expect(DEFAULT_SFDX_CHANNEL.name).to.equal('Salesforce DX CLI');
+      expect(DEFAULT_SFDX_CHANNEL.name).to.equal('Salesforce CLI');
     });
 
     it('Should pipe stdout on successful command execution', async () => {
@@ -76,7 +76,9 @@ describe('Channel', () => {
           resolve();
         });
       });
-      expect(mChannel.value).to.contain('Usage: sfdx force');
+      expect(mChannel.value).to.contain(
+        'sfdx force: [-v] [--json] [--loglevel <string>]'
+      );
       expect(mChannel.value).to.contain('ended with exit code 0');
     });
 

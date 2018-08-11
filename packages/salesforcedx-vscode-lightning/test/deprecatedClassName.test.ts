@@ -11,21 +11,31 @@ import * as vscode from 'vscode';
 
 describe('SLDS Deprecated Class Name', () => {
   let res: vscode.Uri[];
+  let lightningExtension: vscode.Extension<any>;
 
   before(async () => {
     if (vscode.workspace.rootPath) {
-      res = await vscode.workspace.findFiles(
-        path.join('**', 'DemoComponent.cmp')
-      );
-      await vscode.workspace
-        .openTextDocument(res[0])
-        .then(document => vscode.window.showTextDocument(document));
+      lightningExtension = vscode.extensions.getExtension(
+        'salesforce.salesforcedx-vscode-lightning'
+      ) as vscode.Extension<any>;
     }
   });
 
   it('Should create SFDX fix deprecated class command', async () => {
+    if (lightningExtension && !lightningExtension.isActive) {
+      await lightningExtension.activate();
+    }
+    res = await vscode.workspace.findFiles(
+      path.join('**', 'DemoComponent.cmp')
+    );
+    await vscode.workspace
+      .openTextDocument(res[0])
+      .then(document => vscode.window.showTextDocument(document));
+
     const commandList = await vscode.commands.getCommands(true);
-    expect(commandList).to.include('sfdx.force.lightning.slds.fix.deprecated.class');
+    expect(commandList).to.include(
+      'sfdx.force.lightning.slds.fix.deprecated.class'
+    );
   });
 
   after(async () => {

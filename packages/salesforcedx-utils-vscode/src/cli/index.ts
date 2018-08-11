@@ -18,7 +18,11 @@ export { CommandBuilder, SfdxCommandBuilder } from './commandBuilder';
 export {
   CliCommandExecutor,
   CliCommandExecution,
-  CommandExecution
+  CommandExecution,
+  CompositeCliCommandExecutor,
+  GlobalCliEnvironment
 } from './commandExecutor';
 export { CommandOutput } from './commandOutput';
+export { ForceConfigGet } from './forceConfigGet';
+export { ForceOrgDisplay, OrgInfo } from './forceOrgDisplay';
 export { LocalCommandExecution } from './localCommandExecutor';

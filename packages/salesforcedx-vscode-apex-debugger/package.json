@@ -9,21 +9,22 @@
   "repository": {
     "url": "https://github.com/forcedotcom/salesforcedx-vscode"
   },
-  "icon": "images/icon.png",
+  "icon": "images/VSCodeApexDebugger.png",
   "galleryBanner": {
     "color": "#ECECEC",
     "theme": "light"
   },
-  "version": "41.12.0",
+  "version": "43.11.0",
   "publisher": "salesforce",
   "license": "BSD-3-Clause",
   "engines": {
-    "vscode": "^1.17.0"
+    "vscode": "^1.23.0"
   },
   "categories": ["Debuggers"],
   "dependencies": {
-    "@salesforce/salesforcedx-apex-debugger": "41.12.0",
-    "vscode-debugprotocol": "1.24.0"
+    "@salesforce/salesforcedx-apex-debugger": "43.11.0",
+    "vscode-debugprotocol": "1.28.0",
+    "vscode-extension-telemetry": "0.0.17"
   },
   "devDependencies": {
     "@types/chai": "^4.0.0",
@@ -31,9 +32,10 @@
     "@types/node": "^6.0.40",
     "@types/sinon": "^2.3.2",
     "chai": "^4.0.2",
+    "cross-env": "^5.0.5",
     "mocha": "3.2.0",
     "sinon": "^2.3.6",
-    "vscode": "1.1.10"
+    "vscode": "1.1.17"
   },
   "extensionDependencies": [
     "salesforce.salesforcedx-vscode-apex",
@@ -50,8 +52,8 @@
     "clean":
       "shx rm -rf node_modules && shx rm -rf out && shx rm -rf coverage && shx rm -rf .nyc_output",
     "postinstall": "node ./node_modules/vscode/bin/install",
-    "test": "node ./node_modules/vscode/bin/test",
-    "test:unit": "node ./node_modules/vscode/bin/test"
+    "test": "node ../../scripts/run-test-with-top-level-extensions",
+    "test:unit": "node ../../scripts/run-test-with-top-level-extensions"
   },
   "activationEvents": ["onDebug", "workspaceContains:sfdx-project.json"],
   "main": "./out/src",
@@ -150,6 +152,11 @@
                 "type": ["boolean", "string"],
                 "description": "%trace_text%",
                 "default": false
+              },
+              "connectType": {
+                "type": "string",
+                "description": "%connect_type_text%",
+                "enum": ["DEFAULT", "ISV_DEBUGGER"]
               }
             }
           }
